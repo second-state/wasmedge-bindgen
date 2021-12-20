@@ -1,6 +1,7 @@
 package host
 
 import (
+	"encoding/binary"
 	"errors"
 
 	"github.com/second-state/WasmEdge-go/wasmedge"
@@ -74,7 +75,13 @@ func (h *Host) Init() error {
 		executor.RegisterImport(store, tfliteImports)
 	}
 
-	funcImports := h.addHostFns()
+	funcImports := wasmedge.NewImportObject("env")
+
+	resultFn := h.newHostFns(h.return_result, "return_result")
+	funcImports.AddFunction("return_result", resultFn)
+	errorFn := h.newHostFns(h.return_error, "return_error")
+	funcImports.AddFunction("return_error", errorFn)
+
 	executor.RegisterImport(store, funcImports)
 
 	executor.Instantiate(store, ast)
@@ -91,23 +98,44 @@ func (h *Host) Init() error {
 	return nil
 }
 
-func (h *Host) Run(input []byte) error {
-	lengthOfInput := len(input)
-	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", int32(lengthOfInput))
+func (h *Host) Run(inputs... interface{}) error {
+	inputsCount := len(inputs)
+	
+	// allocate new frame for passing pointers
+	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", int32(inputsCount * 4 * 2))
 	if err != nil {
 		return err
 	}
-	pointer := allocateResult[0].(int32)
-	defer h.vm.executor.Invoke(h.vm.store, "deallocate", pointer, int32(lengthOfInput))
+	pointerOfPointers := allocateResult[0].(int32)
+	defer h.vm.executor.Invoke(h.vm.store, "deallocate", pointerOfPointers, int32(inputsCount * 4 * 2))
 	
 	memory := h.vm.store.FindMemory("memory")
 	if memory == nil {
 		return errors.New("Memory not found")
 	}
+
+	for idx, inp := range inputs {
+		input := inp.([]byte)
+		lengthOfInput := int32(len(input))
+		allocateResult, err = h.vm.executor.Invoke(h.vm.store, "allocate", lengthOfInput)
+		if err != nil {
+			return err
+		}
+		pointer := allocateResult[0].(int32)
+		defer h.vm.executor.Invoke(h.vm.store, "deallocate", pointer, lengthOfInput)
+		
+		memory.SetData(input, uint(pointer), uint(lengthOfInput))
+
+		// set data for pointer of pointer
+		pointerBytes := make([]byte, 4)
+		binary.LittleEndian.PutUint32(pointerBytes, uint32(pointer))
+		memory.SetData(pointerBytes, uint(pointerOfPointers) + uint(idx * 4 * 2), uint(4))
+		lengthBytes := make([]byte, 4)
+		binary.LittleEndian.PutUint32(lengthBytes, uint32(lengthOfInput))
+		memory.SetData(lengthBytes, uint(pointerOfPointers) + uint(idx * 4 * 2 + 4), uint(4))
+	}
 	
-	memory.SetData(input, uint(pointer), uint(lengthOfInput))
-	
-	_, err = h.vm.executor.Invoke(h.vm.store, "run_e", pointer, int32(lengthOfInput))
+	_, err = h.vm.executor.Invoke(h.vm.store, "run_e", pointerOfPointers, int32(inputsCount))
 
 	return err
 }
@@ -131,8 +159,6 @@ func (h *Host) ExecutionResult() ([]byte, error) {
 		return res, nil
 	case err := <-h.errChan:
 		return nil, err
-	default:
-		// do nothing and fall through
 	}
 
 	return nil, nil
@@ -159,9 +185,30 @@ func (h *Host) return_result(pointer int32, size int32) {
 	}
 }
 
-func (h *Host) addHostFns() *wasmedge.ImportObject {
+func (h *Host) return_error(pointer int32, size int32) {
+	memory := h.vm.store.FindMemory("memory")
+	if memory == nil {
+		return
+	}
+
+	data, err := memory.GetData(uint(pointer), uint(size))
+	if err != nil {
+		h.errChan <- err
+		return
+	}
+
+	result := make([]byte, size)
+
+	copy(result, data)
+
+	if result != nil {
+		h.errChan <- errors.New(string(result))
+	}
+}
+
+func (h *Host) newHostFns(fn func(int32, int32) , importName string) *wasmedge.Function {
 	wasmHostFn := func(data interface{}, mem *wasmedge.Memory, params []interface{}) ([]interface{}, wasmedge.Result) {
-		h.return_result(params[0].(int32), params[1].(int32))
+		fn(params[0].(int32), params[1].(int32))
 		return nil, wasmedge.Result_Success
 	}
 
@@ -175,9 +222,5 @@ func (h *Host) addHostFns() *wasmedge.ImportObject {
 	retType := []wasmedge.ValType{}
 	funcType := wasmedge.NewFunctionType(argsType, retType)
 
-	wasmEdgeHostFn := wasmedge.NewFunction(funcType, wasmHostFn, nil, 0)
-
-	imports := wasmedge.NewImportObject("env")
-	imports.AddFunction("return_result", wasmEdgeHostFn)
-	return imports
+	return wasmedge.NewFunction(funcType, wasmHostFn, nil, 0)
 }
