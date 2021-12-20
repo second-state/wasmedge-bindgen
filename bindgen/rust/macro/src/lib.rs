@@ -10,10 +10,11 @@ pub fn build_run(_: TokenStream, item: TokenStream) -> TokenStream {
 
     let run_name = ast.sig.ident;
 
-    let mut parsed_params = Vec::<&str>::new();
+    let mut arg_names = Vec::<syn::Ident>::new();
+    let mut arg_values = Vec::<proc_macro2::TokenStream>::new();
 
     let params_iter = ast.sig.inputs.iter();
-    for param in params_iter {
+    for (pos, param) in params_iter.enumerate() {
         match param {
             syn::FnArg::Typed(param_type) => {
                 match &*param_type.ty {
@@ -30,7 +31,10 @@ pub fn build_run(_: TokenStream, item: TokenStream) -> TokenStream {
                                                         let arg_seg = arg_type_path.path.segments.first().unwrap();
                                                         match arg_seg.ident.to_string().as_str() {
                                                             "u8" => {
-                                                                parsed_params.push("vec<u8>");
+                                                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                                                arg_values.push(quote! {
+                                                                    Vec::from_raw_parts(pointer, size as usize, size as usize)
+                                                                })
                                                             }
                                                             _ => {}
                                                         }
@@ -43,6 +47,78 @@ pub fn build_run(_: TokenStream, item: TokenStream) -> TokenStream {
                                     }
                                     _ => {}
                                 }
+                            }
+                            "bool" => {
+                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                arg_values.push(quote! {
+                                    *(pointer as *const bool)
+                                })
+                            }
+                            "char" => {
+                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                arg_values.push(quote! {
+                                    *(pointer as *const char)
+                                })
+                            }
+                            "i8" => {
+                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                arg_values.push(quote! {
+                                    *(pointer as *const i8)
+                                })
+                            }
+                            "u8" => {
+                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                arg_values.push(quote! {
+                                    *(pointer as *const u8)
+                                })
+                            }
+                            "i16" => {
+                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                arg_values.push(quote! {
+                                    *(pointer as *const i16)
+                                })
+                            }
+                            "u16" => {
+                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                arg_values.push(quote! {
+                                    *(pointer as *const u16)
+                                })
+                            }
+                            "i32" => {
+                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                arg_values.push(quote! {
+                                    *(pointer as *const i32)
+                                })
+                            }
+                            "u32" => {
+                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                arg_values.push(quote! {
+                                    *(pointer as *const u32)
+                                })
+                            }
+                            "i64" => {
+                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                arg_values.push(quote! {
+                                    *(pointer as *const i64)
+                                })
+                            }
+                            "u64" => {
+                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                arg_values.push(quote! {
+                                    *(pointer as *const u64)
+                                })
+                            }
+                            "f32" => {
+                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                arg_values.push(quote! {
+                                    *(pointer as *const f32)
+                                })
+                            }
+                            "f64" => {
+                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                arg_values.push(quote! {
+                                    *(pointer as *const f64)
+                                })
                             }
                             _ => {}
                         }
@@ -60,9 +136,8 @@ pub fn build_run(_: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
-    let params_len = parsed_params.len();
-    let i = (0..params_len).rev().map(syn::Index::from);
-    let i2 = (0..params_len).rev().map(syn::Index::from);
+    let params_len = arg_names.len();
+    let i = (0..params_len).map(syn::Index::from);
 
     let gen = quote! {
         extern "C" {
@@ -77,14 +152,15 @@ pub fn build_run(_: TokenStream, item: TokenStream) -> TokenStream {
                 return_error(err_msg.as_ptr(), err_msg.len() as i32);
                 return;
             }
-            let mut bytes: Vec<Vec<u8>> = vec!();
+
             #(
             let pointer = *params_pointer.offset(#i * 2) as *mut u8;
             let size= *params_pointer.offset(#i * 2 + 1);
-            bytes.push(Vec::from_raw_parts(pointer, size as usize, size as usize));
+            let #arg_names = #arg_values;
             )*
 
-            match #run_name(#(bytes.remove(#i2)),*) {
+
+            match #run_name(#(#arg_names),*) {
                 Ok(data) => {
                     return_result(data.as_ptr(), data.len() as i32);
                 }
