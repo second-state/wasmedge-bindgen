@@ -1,4 +1,5 @@
 extern crate proc_macro;
+
 use proc_macro::TokenStream;
 use quote::quote;
 use syn;
@@ -34,6 +35,48 @@ pub fn build_run(_: TokenStream, item: TokenStream) -> TokenStream {
                                                                 arg_names.push(quote::format_ident!("arg{}", pos));
                                                                 arg_values.push(quote! {
                                                                     Vec::from_raw_parts(pointer, size as usize, size as usize)
+                                                                })
+                                                            }
+                                                            "i8" => {
+                                                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                                                arg_values.push(quote! {
+                                                                    Vec::from_raw_parts(pointer as *mut i8, size as usize, size as usize)
+                                                                })
+                                                            }
+                                                            "u16" => {
+                                                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                                                arg_values.push(quote! {
+                                                                    Vec::from_raw_parts(pointer as *mut u16, size as usize, size as usize)
+                                                                })
+                                                            }
+                                                            "i16" => {
+                                                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                                                arg_values.push(quote! {
+                                                                    Vec::from_raw_parts(pointer as *mut i16, size as usize, size as usize)
+                                                                })
+                                                            }
+                                                            "u32" => {
+                                                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                                                arg_values.push(quote! {
+                                                                    Vec::from_raw_parts(pointer as *mut u32, size as usize, size as usize)
+                                                                })
+                                                            }
+                                                            "i32" => {
+                                                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                                                arg_values.push(quote! {
+                                                                    Vec::from_raw_parts(pointer as *mut i32, size as usize, size as usize)
+                                                                })
+                                                            }
+                                                            "u64" => {
+                                                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                                                arg_values.push(quote! {
+                                                                    Vec::from_raw_parts(pointer as *mut u64, size as usize, size as usize)
+                                                                })
+                                                            }
+                                                            "i64" => {
+                                                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                                                arg_values.push(quote! {
+                                                                    Vec::from_raw_parts(pointer as *mut i64, size as usize, size as usize)
                                                                 })
                                                             }
                                                             _ => {}
@@ -120,6 +163,12 @@ pub fn build_run(_: TokenStream, item: TokenStream) -> TokenStream {
                                     *(pointer as *const f64)
                                 })
                             }
+                            "String" => {
+                                arg_names.push(quote::format_ident!("arg{}", pos));
+                                arg_values.push(quote! {
+                                    unsafe { CStr::from_ptr(pointer as *const c_char).to_str().unwrap().to_owned() }
+                                })
+                            }
                             _ => {}
                         }
                     }
@@ -140,6 +189,9 @@ pub fn build_run(_: TokenStream, item: TokenStream) -> TokenStream {
     let i = (0..params_len).map(syn::Index::from);
 
     let gen = quote! {
+        use std::os::raw::c_char;
+        use std::ffi::CStr;
+        
         extern "C" {
             fn return_result(result_pointer: *const u8, result_size: i32);
             fn return_error(result_pointer: *const u8, result_size: i32);
