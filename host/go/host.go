@@ -93,7 +93,7 @@ func (h *Host) instantiate() {
 	}
 }
 
-func (h *Host) Run(inputs... interface{}) error {
+func (h *Host) Run(funcName string, inputs... interface{}) ([]byte, error) {
 	h.instantiate()
 
 	inputsCount := len(inputs)
@@ -101,73 +101,95 @@ func (h *Host) Run(inputs... interface{}) error {
 	// allocate new frame for passing pointers
 	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", int32(inputsCount * 4 * 2))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	pointerOfPointers := allocateResult[0].(int32)
 	defer h.vm.executor.Invoke(h.vm.store, "deallocate", pointerOfPointers, int32(inputsCount * 4 * 2))
 	
 	memory := h.vm.store.FindMemory("memory")
 	if memory == nil {
-		return errors.New("Memory not found")
+		return nil, errors.New("Memory not found")
 	}
 
 	for idx, inp := range inputs {
-		var pointer, lengthOfInput int32
+		var pointer, lengthOfInput, byteLengthOfInput int32
 		var err error
 		switch input := inp.(type) {
 		case []byte:
 			pointer, lengthOfInput, err = h.settleByteSlice(memory, input)
+			byteLengthOfInput = lengthOfInput
 		case []int8:
 			pointer, lengthOfInput, err = h.settleI8Slice(memory, input)
+			byteLengthOfInput = lengthOfInput
 		case []uint16:
 			pointer, lengthOfInput, err = h.settleU16Slice(memory, input)
+			byteLengthOfInput = lengthOfInput * 2
 		case []int16:
 			pointer, lengthOfInput, err = h.settleI16Slice(memory, input)
+			byteLengthOfInput = lengthOfInput * 2
 		case []uint32:
 			pointer, lengthOfInput, err = h.settleU32Slice(memory, input)
+			byteLengthOfInput = lengthOfInput * 4
 		case []int32:
 			pointer, lengthOfInput, err = h.settleI32Slice(memory, input)
+			byteLengthOfInput = lengthOfInput * 4
 		case []uint64:
 			pointer, lengthOfInput, err = h.settleU64Slice(memory, input)
+			byteLengthOfInput = lengthOfInput * 8
 		case []int64:
 			pointer, lengthOfInput, err = h.settleI64Slice(memory, input)
+			byteLengthOfInput = lengthOfInput * 8
 		case bool:
 			pointer, lengthOfInput, err = h.settleBool(memory, input)
+			byteLengthOfInput = lengthOfInput
 		case int8:
 			pointer, lengthOfInput, err = h.settleI8(memory, input)
+			byteLengthOfInput = lengthOfInput
 		case uint8:
 			pointer, lengthOfInput, err = h.settleU8(memory, input)
+			byteLengthOfInput = lengthOfInput
 		case int16:
 			pointer, lengthOfInput, err = h.settleI16(memory, input)
+			byteLengthOfInput = lengthOfInput * 2
 		case uint16:
 			pointer, lengthOfInput, err = h.settleU16(memory, input)
+			byteLengthOfInput = lengthOfInput * 2
 		case int32:
 			pointer, lengthOfInput, err = h.settleI32(memory, input)
+			byteLengthOfInput = lengthOfInput * 4
 		case uint32:
 			pointer, lengthOfInput, err = h.settleU32(memory, input)
+			byteLengthOfInput = lengthOfInput * 4
 		case int64:
 			pointer, lengthOfInput, err = h.settleI64(memory, input)
+			byteLengthOfInput = lengthOfInput * 8
 		case uint64:
 			pointer, lengthOfInput, err = h.settleU64(memory, input)
+			byteLengthOfInput = lengthOfInput * 8
 		case float32:
 			pointer, lengthOfInput, err = h.settleF32(memory, input)
+			byteLengthOfInput = lengthOfInput * 4
 		case float64:
 			pointer, lengthOfInput, err = h.settleF64(memory, input)
+			byteLengthOfInput = lengthOfInput * 8
 		case string:
 			pointer, lengthOfInput, err = h.settleString(memory, input)
+			byteLengthOfInput = lengthOfInput
 		default:
-			return errors.New(fmt.Sprintf("Unsupported arg type %T", input))
+			return nil, errors.New(fmt.Sprintf("Unsupported arg type %T", input))
 		}
 		if err != nil {
-			return err
+			return nil, err
 		}
 		h.putPointerOfPointer(pointerOfPointers, memory, idx, pointer, lengthOfInput)
-		defer h.vm.executor.Invoke(h.vm.store, "deallocate", pointer, lengthOfInput)
+		defer h.vm.executor.Invoke(h.vm.store, "deallocate", pointer, byteLengthOfInput)
 	}
 	
-	_, err = h.vm.executor.Invoke(h.vm.store, "run_e", pointerOfPointers, int32(inputsCount))
+	if _, err = h.vm.executor.Invoke(h.vm.store, funcName, pointerOfPointers, int32(inputsCount)); err != nil {
+		return nil, err
+	}
 
-	return err
+	return h.executionResult()
 }
 
 func (h *Host) Release() {
@@ -181,7 +203,7 @@ func (h *Host) Release() {
 	h.vm.ast.Release()
 }
 
-func (h *Host) ExecutionResult() ([]byte, error) {
+func (h *Host) executionResult() ([]byte, error) {
 	select {
 	case res := <-h.resultChan:
 		return res, nil
@@ -461,8 +483,8 @@ func (h *Host) settleU8(memory *wasmedge.Memory, input uint8) (int32, int32, err
 }
 
 func (h *Host) settleI16(memory *wasmedge.Memory, input int16) (int32, int32, error) {
-	lengthOfInput := int32(2)
-	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", lengthOfInput)
+	lengthOfInput := int32(1)
+	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", lengthOfInput * 2)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -470,14 +492,14 @@ func (h *Host) settleI16(memory *wasmedge.Memory, input int16) (int32, int32, er
 
 	bytes := make([]byte, 2)
 	binary.LittleEndian.PutUint16(bytes, uint16(input))
-	memory.SetData(bytes, uint(pointer), uint(lengthOfInput))
+	memory.SetData(bytes, uint(pointer), uint(lengthOfInput * 2))
 
 	return pointer, lengthOfInput, nil
 }
 
 func (h *Host) settleU16(memory *wasmedge.Memory, input uint16) (int32, int32, error) {
-	lengthOfInput := int32(2)
-	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", lengthOfInput)
+	lengthOfInput := int32(1)
+	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", lengthOfInput * 2)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -485,14 +507,14 @@ func (h *Host) settleU16(memory *wasmedge.Memory, input uint16) (int32, int32, e
 
 	bytes := make([]byte, 2)
 	binary.LittleEndian.PutUint16(bytes, input)
-	memory.SetData(bytes, uint(pointer), uint(lengthOfInput))
+	memory.SetData(bytes, uint(pointer), uint(lengthOfInput * 2))
 
 	return pointer, lengthOfInput, nil
 }
 
 func (h *Host) settleI32(memory *wasmedge.Memory, input int32) (int32, int32, error) {
-	lengthOfInput := int32(4)
-	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", lengthOfInput)
+	lengthOfInput := int32(1)
+	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", lengthOfInput * 4)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -500,14 +522,14 @@ func (h *Host) settleI32(memory *wasmedge.Memory, input int32) (int32, int32, er
 
 	bytes := make([]byte, 4)
 	binary.LittleEndian.PutUint32(bytes, uint32(input))
-	memory.SetData(bytes, uint(pointer), uint(lengthOfInput))
+	memory.SetData(bytes, uint(pointer), uint(lengthOfInput * 4))
 
 	return pointer, lengthOfInput, nil
 }
 
 func (h *Host) settleU32(memory *wasmedge.Memory, input uint32) (int32, int32, error) {
-	lengthOfInput := int32(4)
-	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", lengthOfInput)
+	lengthOfInput := int32(1)
+	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", lengthOfInput * 4)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -515,14 +537,14 @@ func (h *Host) settleU32(memory *wasmedge.Memory, input uint32) (int32, int32, e
 
 	bytes := make([]byte, 4)
 	binary.LittleEndian.PutUint32(bytes, input)
-	memory.SetData(bytes, uint(pointer), uint(lengthOfInput))
+	memory.SetData(bytes, uint(pointer), uint(lengthOfInput * 4))
 
 	return pointer, lengthOfInput, nil
 }
 
 func (h *Host) settleI64(memory *wasmedge.Memory, input int64) (int32, int32, error) {
-	lengthOfInput := int32(8)
-	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", lengthOfInput)
+	lengthOfInput := int32(1)
+	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", lengthOfInput * 8)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -530,14 +552,14 @@ func (h *Host) settleI64(memory *wasmedge.Memory, input int64) (int32, int32, er
 
 	bytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(bytes, uint64(input))
-	memory.SetData(bytes, uint(pointer), uint(lengthOfInput))
+	memory.SetData(bytes, uint(pointer), uint(lengthOfInput * 8))
 
 	return pointer, lengthOfInput, nil
 }
 
 func (h *Host) settleU64(memory *wasmedge.Memory, input uint64) (int32, int32, error) {
-	lengthOfInput := int32(8)
-	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", lengthOfInput)
+	lengthOfInput := int32(1)
+	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", lengthOfInput * 8)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -545,14 +567,14 @@ func (h *Host) settleU64(memory *wasmedge.Memory, input uint64) (int32, int32, e
 
 	bytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(bytes, input)
-	memory.SetData(bytes, uint(pointer), uint(lengthOfInput))
+	memory.SetData(bytes, uint(pointer), uint(lengthOfInput * 8))
 
 	return pointer, lengthOfInput, nil
 }
 
 func (h *Host) settleF32(memory *wasmedge.Memory, input float32) (int32, int32, error) {
-	lengthOfInput := int32(4)
-	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", lengthOfInput)
+	lengthOfInput := int32(1)
+	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", lengthOfInput * 4)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -560,14 +582,14 @@ func (h *Host) settleF32(memory *wasmedge.Memory, input float32) (int32, int32, 
 
 	bytes := make([]byte, 4)
 	binary.LittleEndian.PutUint32(bytes, math.Float32bits(input))
-	memory.SetData(bytes, uint(pointer), uint(lengthOfInput))
+	memory.SetData(bytes, uint(pointer), uint(lengthOfInput * 4))
 
 	return pointer, lengthOfInput, nil
 }
 
 func (h *Host) settleF64(memory *wasmedge.Memory, input float64) (int32, int32, error) {
-	lengthOfInput := int32(8)
-	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", lengthOfInput)
+	lengthOfInput := int32(1)
+	allocateResult, err := h.vm.executor.Invoke(h.vm.store, "allocate", lengthOfInput * 8)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -575,7 +597,7 @@ func (h *Host) settleF64(memory *wasmedge.Memory, input float64) (int32, int32, 
 
 	bytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(bytes, math.Float64bits(input))
-	memory.SetData(bytes, uint(pointer), uint(lengthOfInput))
+	memory.SetData(bytes, uint(pointer), uint(lengthOfInput * 8))
 
 	return pointer, lengthOfInput, nil
 }
