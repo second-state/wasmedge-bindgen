@@ -11,37 +11,36 @@ import (
 
 // VM is a wrapper of objects of WasmEdge API
 type VM struct {
+	ast           *wasmedge.AST
 	executor      *wasmedge.Executor
 	store         *wasmedge.Store
 	wasiImports   *wasmedge.ImportObject
 	funcImports   *wasmedge.ImportObject
-	tfImports     *wasmedge.ImportObject
-	tfliteImports *wasmedge.ImportObject
+	extImports    []*wasmedge.ImportObject
 }
 
 type Host struct {
 	vm         *VM
 	wasmFile   string
-	enableTF   bool
+	enabledExt []string
 
 	resultChan chan []byte
 	errChan    chan error
+
+	instantiated bool
 }
 
-func NewHost(wasmFile string) *Host {
-	return &Host {
+func NewHost(wasmFile string) (*Host, error) {
+	h := &Host {
 		wasmFile: wasmFile,
 	}
-}
-
-func NewHostWithTF(wasmFile string) *Host {
-	return &Host {
-		wasmFile: wasmFile,
-		enableTF: true,
+	if err := h.init(); err != nil {
+		return nil, err
 	}
+	return h, nil
 }
 
-func (h *Host) Init() error {
+func (h *Host) init() error {
 	loader := wasmedge.NewLoader()
 	defer loader.Release()
 
@@ -49,33 +48,19 @@ func (h *Host) Init() error {
 	if err != nil {
 		return err
 	}
-	defer ast.Release()
 
 	val := wasmedge.NewValidator()
 	defer val.Release()
 	if err = val.Validate(ast); err != nil {
+		ast.Release()
 		return err
 	}
-
-	h.resultChan = make(chan []byte, 1)
-	h.errChan = make(chan error, 1)
 
 	store := wasmedge.NewStore()
 	executor := wasmedge.NewExecutor()
 
 	wasiImports := wasmedge.NewWasiImportObject(nil, nil, nil)
 	executor.RegisterImport(store, wasiImports)
-
-	var tfImports *wasmedge.ImportObject
-	var tfliteImports *wasmedge.ImportObject
-
-	if h.enableTF {
-		/// Register WasmEdge-tensorflow
-		tfImports = wasmedge.NewTensorflowImportObject()
-		tfliteImports = wasmedge.NewTensorflowLiteImportObject()
-		executor.RegisterImport(store, tfImports)
-		executor.RegisterImport(store, tfliteImports)
-	}
 
 	funcImports := wasmedge.NewImportObject("env")
 
@@ -86,21 +71,31 @@ func (h *Host) Init() error {
 
 	executor.RegisterImport(store, funcImports)
 
-	executor.Instantiate(store, ast)
-
 	h.vm = &VM {
+		ast:           ast,
 		executor:      executor,
 		store:         store,
 		wasiImports:   wasiImports,
 		funcImports:   funcImports,
-		tfImports:     tfImports,
-		tfliteImports: tfliteImports,
+		extImports:    []*wasmedge.ImportObject{},
 	}
+
+	h.resultChan = make(chan []byte, 1)
+	h.errChan = make(chan error, 1)
 
 	return nil
 }
 
+func (h *Host) instantiate() {
+	if !h.instantiated {
+		h.vm.executor.Instantiate(h.vm.store, h.vm.ast)
+		h.instantiated = true
+	}
+}
+
 func (h *Host) Run(inputs... interface{}) error {
+	h.instantiate()
+
 	inputsCount := len(inputs)
 	
 	// allocate new frame for passing pointers
@@ -176,16 +171,14 @@ func (h *Host) Run(inputs... interface{}) error {
 }
 
 func (h *Host) Release() {
-	if h.vm.tfImports != nil {
-		h.vm.tfImports.Release()
-	}
-	if h.vm.tfliteImports != nil {
-		h.vm.tfliteImports.Release()
+	for _, extImport := range h.vm.extImports {
+		extImport.Release()
 	}
 	h.vm.funcImports.Release()
 	h.vm.wasiImports.Release()
 	h.vm.store.Release()
 	h.vm.executor.Release()
+	h.vm.ast.Release()
 }
 
 func (h *Host) ExecutionResult() ([]byte, error) {
