@@ -1,4 +1,4 @@
-package host
+package bindgen
 
 import (
 	"encoding/binary"
@@ -18,7 +18,7 @@ type Bindgen struct {
 	funcImports *wasmedge.ImportObject
 }
 
-func NewBindgen(vm *wasmedge.VM) *Bindgen {
+func Instantiate(vm *wasmedge.VM) *Bindgen {
 	b := &Bindgen {
 		vm:          vm,
 		resultChan:  make(chan []byte, 1),
@@ -26,6 +26,8 @@ func NewBindgen(vm *wasmedge.VM) *Bindgen {
 	}
 
 	b.init()
+
+	b.vm.Instantiate()
 
 	return b
 }
