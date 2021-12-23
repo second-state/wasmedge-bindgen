@@ -7,7 +7,7 @@ use syn;
 static mut FUNC_NUMBER: i32 = 0;
 
 #[proc_macro_attribute]
-pub fn build_run(_: TokenStream, item: TokenStream) -> TokenStream {
+pub fn wasmedge_bindgen(_: TokenStream, item: TokenStream) -> TokenStream {
     let mut ast: syn::ItemFn = syn::parse(item).unwrap();
 
     let func_ident = ast.sig.ident;
