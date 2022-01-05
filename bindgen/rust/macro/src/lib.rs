@@ -202,6 +202,7 @@ pub fn wasmedge_bindgen(_: TokenStream, item: TokenStream) -> TokenStream {
         #[no_mangle]
         pub unsafe extern "C" fn #func_ident(params_pointer: *mut u32, params_count: i32) {
 
+            #[link(wasm_import_module = "wasmedge-bindgen")]
             extern "C" {
                 fn return_result(result_pointer: *const u8, result_size: i32);
                 fn return_error(result_pointer: *const u8, result_size: i32);

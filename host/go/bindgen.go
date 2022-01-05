@@ -33,7 +33,7 @@ func Instantiate(vm *wasmedge.VM) *Bindgen {
 }
 
 func (b *Bindgen) init() {
-	funcImports := wasmedge.NewImportObject("env")
+	funcImports := wasmedge.NewImportObject("wasmedge-bindgen")
 
 	resultFn := b.newHostFns(b.return_result, "return_result")
 	funcImports.AddFunction("return_result", resultFn)
