@@ -1,6 +1,7 @@
 package bindgen
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -9,10 +10,34 @@ import (
 	"github.com/second-state/WasmEdge-go/wasmedge"
 )
 
+const (
+	U8 int32 = 1
+	I8 = 2
+	U16 = 3
+	I16 = 4
+	U32 = 5
+	I32 = 6
+	U64 = 7
+	I64 = 8
+	F32 = 9
+	F64 = 10
+	Bool = 11
+	Rune = 12
+	ByteArray = 21
+	I8Array = 22
+	U16Array = 23
+	I16Array = 24
+	U32Array = 25
+	I32Array = 26
+	U64Array = 27
+	I64Array = 28
+	String = 31
+)
+
 type Bindgen struct {
 	vm         *wasmedge.VM
 
-	resultChan chan []byte
+	resultChan chan []interface{}
 	errChan    chan error
 
 	funcImports *wasmedge.ImportObject
@@ -21,7 +46,7 @@ type Bindgen struct {
 func Instantiate(vm *wasmedge.VM) *Bindgen {
 	b := &Bindgen {
 		vm:          vm,
-		resultChan:  make(chan []byte, 1),
+		resultChan:  make(chan []interface{}, 1),
 		errChan:     make(chan error, 1),
 	}
 
@@ -45,7 +70,7 @@ func (b *Bindgen) init() {
 	b.funcImports = funcImports
 }
 
-func (b *Bindgen) Execute(funcName string, inputs... interface{}) ([]byte, error) {
+func (b *Bindgen) Execute(funcName string, inputs... interface{}) ([]interface{}, error) {
 	inputsCount := len(inputs)
 	
 	// allocate new frame for passing pointers
@@ -146,7 +171,7 @@ func (b *Bindgen) Release() {
 	b.funcImports.Release()
 }
 
-func (b *Bindgen) executionResult() ([]byte, error) {
+func (b *Bindgen) executionResult() ([]interface{}, error) {
 	select {
 	case res := <-b.resultChan:
 		return res, nil
@@ -163,15 +188,73 @@ func (b *Bindgen) return_result(pointer int32, size int32) {
 		return
 	}
 
-	data, err := memory.GetData(uint(pointer), uint(size))
+	data, err := memory.GetData(uint(pointer), uint(size) * 3 * 4)
 	if err != nil {
 		b.errChan <- err
 		return
 	}
 
-	result := make([]byte, size)
+	rets := make([]int32, size * 3)
 
-	copy(result, data)
+	for i := 0; i < int(size * 3); i++ {
+		buf := bytes.NewBuffer(data[i*4:(i+1)*4])
+		var p int32
+		binary.Read(buf, binary.LittleEndian, &p)
+		rets[i] = p
+	}
+
+	result := make([]interface{}, size)
+	for i := 0; i < int(size); i++ {
+		bytes, err := memory.GetData(uint(rets[i * 3]), uint(rets[i * 3 + 2]))
+		if err != nil {
+			b.errChan <- err
+			return
+		}
+		switch rets[i * 3 + 1] {
+		case U8:
+			result[i] = interface{}(b.getU8(bytes))
+		case I8:
+			result[i] = interface{}(b.getI8(bytes))
+		case U16:
+			result[i] = interface{}(b.getU16(bytes))
+		case I16:
+			result[i] = interface{}(b.getI16(bytes))
+		case U32:
+			result[i] = interface{}(b.getU32(bytes))
+		case I32:
+			result[i] = interface{}(b.getI32(bytes))
+		case U64:
+			result[i] = interface{}(b.getU64(bytes))
+		case I64:
+			result[i] = interface{}(b.getI64(bytes))
+		case F32:
+			result[i] = interface{}(b.getF32(bytes))
+		case F64:
+			result[i] = interface{}(b.getF64(bytes))
+		case Bool:
+			result[i] = interface{}(b.getBool(bytes))
+		case Rune:
+			result[i] = interface{}(b.getRune(bytes))
+		case String:
+			result[i] = interface{}(b.getString(bytes))
+		case ByteArray:
+			result[i] = interface{}(b.getByteSlice(bytes))
+		case I8Array:
+			result[i] = interface{}(b.getI8Slice(bytes))
+		case U16Array:
+			result[i] = interface{}(b.getU16Slice(bytes))
+		case I16Array:
+			result[i] = interface{}(b.getI16Slice(bytes))
+		case U32Array:
+			result[i] = interface{}(b.getU32Slice(bytes))
+		case I32Array:
+			result[i] = interface{}(b.getI32Slice(bytes))
+		case U64Array:
+			result[i] = interface{}(b.getU64Slice(bytes))
+		case I64Array:
+			result[i] = interface{}(b.getI64Slice(bytes))
+		}
+	}
 
 	if result != nil {
 		b.resultChan <- result
@@ -556,4 +639,150 @@ func (b *Bindgen) settleString(memory *wasmedge.Memory, input string) (int32, in
 	memory.SetData([]byte(input), uint(pointer), uint(lengthOfInput))
 
 	return pointer, lengthOfInput, nil
+}
+
+
+
+func (b *Bindgen) getU8(d []byte) uint8 {
+	return uint8(d[0])
+}
+
+func (b *Bindgen) getI8(d []byte) int8 {
+	return int8(d[0])
+}
+
+func (b *Bindgen) getU16(d []byte) (r uint16) {
+	buf := bytes.NewBuffer(d)
+	binary.Read(buf, binary.LittleEndian, &r)
+	return
+}
+
+func (b *Bindgen) getI16(d []byte) (r int16) {
+	buf := bytes.NewBuffer(d)
+	binary.Read(buf, binary.LittleEndian, &r)
+	return
+}
+
+func (b *Bindgen) getU32(d []byte) (r uint32) {
+	buf := bytes.NewBuffer(d)
+	binary.Read(buf, binary.LittleEndian, &r)
+	return
+}
+
+func (b *Bindgen) getI32(d []byte) (r int32) {
+	buf := bytes.NewBuffer(d)
+	binary.Read(buf, binary.LittleEndian, &r)
+	return
+}
+
+func (b *Bindgen) getU64(d []byte) (r uint64) {
+	buf := bytes.NewBuffer(d)
+	binary.Read(buf, binary.LittleEndian, &r)
+	return
+}
+
+func (b *Bindgen) getI64(d []byte) (r int64) {
+	buf := bytes.NewBuffer(d)
+	binary.Read(buf, binary.LittleEndian, &r)
+	return
+}
+
+func (b *Bindgen) getF32(d []byte) float32 {
+	buf := bytes.NewBuffer(d)
+	var p uint32
+	binary.Read(buf, binary.LittleEndian, &p)
+	return math.Float32frombits(p)
+}
+
+func (b *Bindgen) getF64(d []byte) float64 {
+	buf := bytes.NewBuffer(d)
+	var p uint64
+	binary.Read(buf, binary.LittleEndian, &p)
+	return math.Float64frombits(p)
+}
+
+func (b *Bindgen) getBool(d []byte) bool {
+	return d[0] == byte(1)
+}
+
+func (b *Bindgen) getRune(d []byte) rune {
+	buf := bytes.NewBuffer(d)
+	var p uint32
+	binary.Read(buf, binary.LittleEndian, &p)
+	return rune(p)
+}
+
+func (b *Bindgen) getString(d []byte) string {
+	return string(d)
+}
+
+func (b *Bindgen) getByteSlice(d []byte) []byte {
+	return d
+}
+
+func (b *Bindgen) getI8Slice(d []byte) []int8 {
+	r := make([]int8, len(d))
+	for i, v := range d {
+		r[i] = int8(v)
+	}
+	return r
+}
+
+func (b *Bindgen) getU16Slice(d []byte) []uint16 {
+	r := make([]uint16, len(d) / 2)
+	for i := 0; i < len(r); i++ {
+		buf := bytes.NewBuffer(d[i*2 : (i+1)*2])
+		binary.Read(buf, binary.LittleEndian, &r[i])
+	}
+	return r
+}
+
+func (b *Bindgen) getI16Slice(d []byte) []int16 {
+	r := make([]int16, len(d) / 2)
+	for i := 0; i < len(r); i++ {
+		buf := bytes.NewBuffer(d[i*2 : (i+1)*2])
+		binary.Read(buf, binary.LittleEndian, &r[i])
+	}
+	return r
+	
+}
+
+func (b *Bindgen) getU32Slice(d []byte) []uint32 {
+	r := make([]uint32, len(d) / 4)
+	for i := 0; i < len(r); i++ {
+		buf := bytes.NewBuffer(d[i*4 : (i+1)*4])
+		binary.Read(buf, binary.LittleEndian, &r[i])
+	}
+	return r
+	
+}
+
+func (b *Bindgen) getI32Slice(d []byte) []int32 {
+	r := make([]int32, len(d) / 4)
+	for i := 0; i < len(r); i++ {
+		buf := bytes.NewBuffer(d[i*4 : (i+1)*4])
+		binary.Read(buf, binary.LittleEndian, &r[i])
+	}
+	return r
+	
+}
+
+func (b *Bindgen) getU64Slice(d []byte) []uint64 {
+	r := make([]uint64, len(d) / 8)
+	for i := 0; i < len(r); i++ {
+		buf := bytes.NewBuffer(d[i*8 : (i+1)*8])
+		binary.Read(buf, binary.LittleEndian, &r[i])
+	}
+	return r
+	
+}
+
+func (b *Bindgen) getI64Slice(d []byte) []int64 {
+	r := make([]int64, len(d) / 8)
+	for i := 0; i < len(r); i++ {
+		buf := bytes.NewBuffer(d[i*8 : (i+1)*8])
+		binary.Read(buf, binary.LittleEndian, &r[i])
+	}
+	return r
+	
 }
