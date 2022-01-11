@@ -12,11 +12,11 @@ import (
 )
 
 func main() {
-    vm := wasmedge.NewVM()
-    vm.LoadWasmFile("say.wasm")
+	vm := wasmedge.NewVM()
+	vm.LoadWasmFile("say.wasm")
 	vm.Validate()
 	vm.Instantiate()
-    vm.Execute("say")
+	vm.Execute("say")
 }
 ```
 
@@ -36,18 +36,18 @@ import (
 )
 
 func main() {
-    vm := wasmedge.NewVM()
-    vm.LoadWasmFile("say.wasm")
+	vm := wasmedge.NewVM()
+	vm.LoadWasmFile("say.wasm")
 	vm.Validate()
 
 	// Instantiate the bindgen and vm
 	bg := bindgen.Instantiate(vm)
 
-    /// say: string -> string
+	/// say: string -> string
 	result, err := bg.Execute("say", "wasmedge-bindgen")
-    if err == nil {
-        fmt.Println("Run bindgen -- say:", result[0].(string))
-    }
+	if err == nil {
+		fmt.Println("Run bindgen -- say:", result[0].(string))
+	}
 }
 ```
 

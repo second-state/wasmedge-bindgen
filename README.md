@@ -13,8 +13,8 @@ use wasmedge_bindgen_macro::*;
 // Export a `say` function from Rust, that returns a hello message.
 #[wasmedge_bindgen]
 pub fn say(s: String) -> String {
-  let r = String::from("hello ");
-  return r + s.as_str();
+	let r = String::from("hello ");
+	return r + s.as_str();
 }
 ```
 
@@ -27,14 +27,14 @@ import (
 )
 
 func main() {
-    .
-    .
-    .
+	.
+	.
+	.
 
 	// Instantiate the bindgen and vm
 	bg := bindgen.Instantiate(vm)
 
-    /// say: string -> string
+		/// say: string -> string
 	res, _ := bg.Execute("say", "wasmedge-bindgen")
 	fmt.Println("Run bindgen -- say:", res[0].(string))
 }
