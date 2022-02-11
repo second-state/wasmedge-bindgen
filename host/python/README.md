@@ -6,6 +6,13 @@ This is a Python library lets you call the WebAssembly exported functions that a
 
 Originally, you can call the wasm function from [WasmEdge-Python](https://github.com/SAtacker/WasmEdge) like this:
 
+Install WasmEdge python module:
+
+```
+pip install -i https://test.pypi.org/simple/ WasmEdge>=0.2.2
+```
+
+
 ```python
 import WasmEdge
 
