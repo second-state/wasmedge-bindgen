@@ -1,0 +1,10 @@
+[package]
+name = "bindgen-funcs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wasmedge-sys = { version = "0.2.0", path = "../../../../../WasmEdge/bindings/rust/wasmedge-sys" }
+wasmedge-bindgen-host = { path = "../../../../host/rust" }

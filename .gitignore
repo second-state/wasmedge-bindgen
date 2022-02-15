@@ -16,11 +16,7 @@ vendor/
 
 target/
 
-test
-
 .DS_Store
-
-target
 
 node_modules
 

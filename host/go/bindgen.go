@@ -178,8 +178,6 @@ func (b *Bindgen) executionResult() ([]interface{}, error) {
 	case err := <-b.errChan:
 		return nil, err
 	}
-
-	return nil, nil
 }
 
 func (b *Bindgen) return_result(pointer int32, size int32) {
@@ -256,9 +254,7 @@ func (b *Bindgen) return_result(pointer int32, size int32) {
 		}
 	}
 
-	if result != nil {
-		b.resultChan <- result
-	}
+	b.resultChan <- result
 }
 
 func (b *Bindgen) return_error(pointer int32, size int32) {
