@@ -2,7 +2,10 @@ import WasmEdge
 
 
 class Bindgen:
-    def __init__(self, VM):
+    def __init__(
+        self,
+        VM,
+    ):
         self.vm = VM
         self.result = None
         self.output = None
@@ -13,6 +16,8 @@ class Bindgen:
         )
 
         def _return_result(a, b):
+            if __debug__:
+                print("hi")
             memory = self.vm.GetStoreContext().GetMemory()
             size = b.Value
             res, data = memory.GetData(len(bytes(a, "UTF-8")), 4 * 3 * size)
@@ -23,8 +28,8 @@ class Bindgen:
                 )
             for i in range(0, size):
                 _, data_ = memory.GetData(rets[i * 3], rets[i * 3 + 2])
-
-                print(data_.Value)
+                if __debug__:
+                    print(data_.Value)
             # res, data = memory.GetData(len(bytes(a, "UTF-8")), 4 * 3 * b.Value)
             return res, data
 
@@ -40,11 +45,10 @@ class Bindgen:
 
     def execute(self, function_name, args):
         args = bytes(args, "UTF-8")
-        args_w = args[:]
-        args = [WasmEdge.Value(i, WasmEdge.Type.I32) for i in args]
         res, pointer_of_pointers = self.vm.Execute(
             "allocate", tuple([WasmEdge.Value(8, WasmEdge.Type.I32)]), 1
         )
+        assert res
 
         self.pop.extend(pointer_of_pointers)
         self.length_pop.append(8)
@@ -54,7 +58,7 @@ class Bindgen:
             "allocate",
             tuple(
                 [
-                    WasmEdge.Value(len(args_w) * 8, WasmEdge.Type.I32),
+                    WasmEdge.Value(4 * len(args), WasmEdge.Type.I32),
                 ]
             ),
             1,
@@ -62,28 +66,37 @@ class Bindgen:
         assert res
 
         self.pop.extend(ptr)
-        self.length_pop.append(len(args_w) * 8)
+        self.length_pop.append(4 * len(args))
 
-        assert memory.SetData(tuple(args_w), ptr[0].Value)
-        # assert memory.SetData(
-        #     tuple(ptr[0].Value.to_bytes(4, 'little')), pointer_of_pointers[0].Value+4)
+        assert memory.SetData(tuple(args), ptr[0].Value)
+
         assert memory.SetData(
-            tuple(ptr[0].Value.to_bytes(4, "little")), pointer_of_pointers[0].Value + 8
+            tuple(ptr[0].Value.to_bytes(4, "little")), pointer_of_pointers[0].Value
         )
 
         assert memory.SetData(
-            tuple(len(args_w).to_bytes(4, "little")), pointer_of_pointers[0].Value + 12
+            tuple(len(args).to_bytes(4, "little")), pointer_of_pointers[0].Value + 4
         )
+
+        _, d = memory.GetData(len(args), ptr[0].Value)
+        assert _
+        assert bytes(d) == args
+        _, ptr_of_ptr_data = memory.GetData(8, pointer_of_pointers[0].Value)
+        assert _
+        assert int.from_bytes(bytes(ptr_of_ptr_data[:4]), "little") == ptr[0].Value
+        assert int.from_bytes(bytes(ptr_of_ptr_data[4:]), "little") == len(args)
 
         res, data = self.vm.Execute(
             function_name,
-            (pointer_of_pointers[0], ptr[0]),
-            len(args_w),
+            tuple([pointer_of_pointers[0], WasmEdge.Value(1, WasmEdge.Type.I32)]),
+            1,
         )
         assert res
         return data
 
     def deallocator(self):
         for ptr, len in zip(self.pop, self.length_pop):
-            res, _ = self.vm.Execute("deallocate", (ptr,), len)
+            res, _ = self.vm.Execute(
+                "deallocate", (ptr, WasmEdge.Value(len, WasmEdge.Type.I32)), 1
+            )
             assert res
