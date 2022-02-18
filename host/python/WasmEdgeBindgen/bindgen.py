@@ -9,35 +9,48 @@ class Bindgen:
         self.vm = VM
         self.result = None
         self.output = None
-        funcImports = WasmEdge.ImportObject("wasmedge-bindgen")
+        self.funcImports = WasmEdge.ImportObject("wasmedge-bindgen")
 
         result_function_type = WasmEdge.FunctionType(
             [WasmEdge.Type.I32, WasmEdge.Type.I32], []
         )
 
-        def _return_result(a, b):
+        def _return_result(ptr, size):
             if __debug__:
-                print("hi")
-            memory = self.vm.GetStoreContext().GetMemory()
-            size = b.Value
-            res, data = memory.GetData(len(bytes(a, "UTF-8")), 4 * 3 * size)
-            rets = []
-            for i in range(0, size * 3):
-                rets.append(
-                    int.from_bytes(bytes(data[i * 4 : (i + 1) * 4]), byteorder="little")
-                )
-            for i in range(0, size):
-                _, data_ = memory.GetData(rets[i * 3], rets[i * 3 + 2])
-                if __debug__:
-                    print(data_.Value)
-            # res, data = memory.GetData(len(bytes(a, "UTF-8")), 4 * 3 * b.Value)
-            return res, data
+                print("Result Func:")
+            memory = self.vm.GetStoreContext().GetMemory("memory")
+            size = size.Value
+            res, address = memory.GetData(size * 4, ptr.Value)
+            if __debug__:
+                assert res
 
-        resultFn = WasmEdge.Function(result_function_type, _return_result, 0)
-        errorFn = WasmEdge.Function(result_function_type, _return_result, 0)
-        funcImports.AddFunction(resultFn, "return_result")
-        funcImports.AddFunction(errorFn, "return_error")
-        self.vm.RegisterModuleFromImport(funcImports)
+            res, ptr_size = memory.GetData(size * 4, ptr.Value + 8)
+            if __debug__:
+                assert res
+
+            res, data = memory.GetData(
+                int.from_bytes(bytes(ptr_size), byteorder="little"),
+                int.from_bytes(bytes(address), "little"),
+            )
+            assert res
+
+            return res, []
+
+        def _return_error(ptr, size):
+            if __debug__:
+                print("Error Func")
+
+            memory = self.vm.GetStoreContext().GetMemory("memory")
+            _, data = memory.GetData(size.Value, ptr.Value)
+
+            rets = [WasmEdge.Value(i, WasmEdge.Type.I32) for i in bytes(data)]
+            return _, rets
+
+        self.resultFn = WasmEdge.Function(result_function_type, _return_result, 0)
+        self.errorFn = WasmEdge.Function(result_function_type, _return_error, 0)
+        self.funcImports.AddFunction(self.resultFn, "return_result")
+        self.funcImports.AddFunction(self.errorFn, "return_error")
+        self.vm.RegisterModuleFromImport(self.funcImports)
         self.vm.Instantiate()
 
         self.pop = []
