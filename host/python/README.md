@@ -8,7 +8,7 @@ Originally, you can call the wasm function from [WasmEdge-Python](https://github
 
 Install WasmEdge python module:
 
-```
+```sh
 pip install -i https://test.pypi.org/simple/ WasmEdge>=0.2.2
 ```
 
@@ -20,8 +20,7 @@ vm = WasmEdge.VM()
 vm.LoadWasmFile("say.wasm")
 vm.Validate()
 vm.Instantiate()
-vm.Execute("say")
-
+res,data = vm.Execute("say","hello",1)
 ```
 
 When your wasm function is retouched by #[wasmedge_bindgen]:
@@ -34,23 +33,21 @@ pub fn say(s: String) -> String {
 ```
 Then you should call it using this library:
 ```python
+from WasmEdgeBindgen import bindgen
 import WasmEdge
-import WasmEdgeBindgen
 
-vm = WasmEdge.VM()
-vm.LoadWasmFile("say.wasm")
+WasmEdge.Logging.error()
+cfx = WasmEdge.Configure()
+cfx.add(WasmEdge.Host.Wasi)
+vm = WasmEdge.VM(cfx)
+vm.LoadWasmFromFile(
+    "examples/rust/target/wasm32-wasi/debug/rust_bindgen_funcs_lib.wasm"
+)
 vm.Validate()
-
-// Instantiate the bindgen and vm
-bg = bindgen.Instantiate(vm)
-
-// say: string -> string
-no_error, result = bg.Execute("say", "wasmedge-bindgen")
-
-if no_error:
-    print("Run bindgen -- say:", result[0])
-else:
-    print(no_error.message())
+b = bindgen.Bindgen(vm)
+res, data = b.execute(function_name="say", args="hello")
+print(bytes(data))
+b.deallocator()
 ```
 
 ## Explain
