@@ -47,8 +47,12 @@ class Bindgen:
             self.output = rets
             return _, []
 
-        self.resultFn = WasmEdge.Function(result_function_type, _return_result, 0)
-        self.errorFn = WasmEdge.Function(result_function_type, _return_error, 0)
+        self.resultFn = WasmEdge.Function(
+            result_function_type, _return_result, 0
+        )
+        self.errorFn = WasmEdge.Function(
+            result_function_type, _return_error, 0
+        )
         self.funcImports.AddFunction(self.resultFn, "return_result")
         self.funcImports.AddFunction(self.errorFn, "return_error")
         self.vm.RegisterModuleFromImport(self.funcImports)
@@ -85,11 +89,13 @@ class Bindgen:
         assert memory.SetData(tuple(args), ptr[0].Value)
 
         assert memory.SetData(
-            tuple(ptr[0].Value.to_bytes(4, "little")), pointer_of_pointers[0].Value
+            tuple(ptr[0].Value.to_bytes(4, "little")),
+            pointer_of_pointers[0].Value,
         )
 
         assert memory.SetData(
-            tuple(len(args).to_bytes(4, "little")), pointer_of_pointers[0].Value + 4
+            tuple(len(args).to_bytes(4, "little")),
+            pointer_of_pointers[0].Value + 4,
         )
 
         _, d = memory.GetData(len(args), ptr[0].Value)
@@ -97,12 +103,19 @@ class Bindgen:
         assert bytes(d) == args
         _, ptr_of_ptr_data = memory.GetData(8, pointer_of_pointers[0].Value)
         assert _
-        assert int.from_bytes(bytes(ptr_of_ptr_data[:4]), "little") == ptr[0].Value
-        assert int.from_bytes(bytes(ptr_of_ptr_data[4:]), "little") == len(args)
+        assert (
+            int.from_bytes(bytes(ptr_of_ptr_data[:4]), "little")
+            == ptr[0].Value
+        )
+        assert int.from_bytes(bytes(ptr_of_ptr_data[4:]), "little") == len(
+            args
+        )
 
         res, _ = self.vm.Execute(
             function_name,
-            tuple([pointer_of_pointers[0], WasmEdge.Value(1, WasmEdge.Type.I32)]),
+            tuple(
+                [pointer_of_pointers[0], WasmEdge.Value(1, WasmEdge.Type.I32)]
+            ),
             0,
         )
         assert res

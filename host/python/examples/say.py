@@ -1,5 +1,6 @@
-from WasmEdgeBindgen import bindgen
 import WasmEdge
+
+from WasmEdgeBindgen import bindgen
 
 WasmEdge.Logging.error()
 cfx = WasmEdge.Configure()
