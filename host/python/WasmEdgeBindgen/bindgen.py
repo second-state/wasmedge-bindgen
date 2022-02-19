@@ -16,8 +16,6 @@ class Bindgen:
         )
 
         def _return_result(ptr, size):
-            if __debug__:
-                print("Result Func:")
             memory = self.vm.GetStoreContext().GetMemory("memory")
             size = size.Value
             res, address = memory.GetData(size * 4, ptr.Value)
@@ -33,7 +31,8 @@ class Bindgen:
                 int.from_bytes(bytes(address), "little"),
             )
             assert res
-
+            self.result = res
+            self.output = data
             return res, []
 
         def _return_error(ptr, size):
@@ -44,7 +43,9 @@ class Bindgen:
             _, data = memory.GetData(size.Value, ptr.Value)
 
             rets = [WasmEdge.Value(i, WasmEdge.Type.I32) for i in bytes(data)]
-            return _, rets
+            self.result = _
+            self.output = rets
+            return _, []
 
         self.resultFn = WasmEdge.Function(result_function_type, _return_result, 0)
         self.errorFn = WasmEdge.Function(result_function_type, _return_error, 0)
@@ -99,17 +100,17 @@ class Bindgen:
         assert int.from_bytes(bytes(ptr_of_ptr_data[:4]), "little") == ptr[0].Value
         assert int.from_bytes(bytes(ptr_of_ptr_data[4:]), "little") == len(args)
 
-        res, data = self.vm.Execute(
+        res, _ = self.vm.Execute(
             function_name,
             tuple([pointer_of_pointers[0], WasmEdge.Value(1, WasmEdge.Type.I32)]),
-            1,
+            0,
         )
         assert res
-        return data
+        return self.result, self.output
 
     def deallocator(self):
         for ptr, len in zip(self.pop, self.length_pop):
             res, _ = self.vm.Execute(
-                "deallocate", (ptr, WasmEdge.Value(len, WasmEdge.Type.I32)), 1
+                "deallocate", (ptr, WasmEdge.Value(len, WasmEdge.Type.I32)), 0
             )
             assert res
