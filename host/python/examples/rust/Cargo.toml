@@ -1,0 +1,14 @@
+[package]
+name = "rust_bindgen_funcs"
+version = "0.1.0"
+authors = ["ubuntu"]
+edition = "2018"
+
+[lib]
+name = "rust_bindgen_funcs_lib"
+path = "src/lib.rs"
+crate-type =["cdylib"]
+
+[dependencies]
+wasmedge-bindgen = "0.1.0"
+wasmedge-bindgen-macro = "0.1.0"

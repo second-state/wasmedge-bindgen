@@ -174,4 +174,4 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-host/python/examples/rust/**
+host/python/examples/rust/target/**
