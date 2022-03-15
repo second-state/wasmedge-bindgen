@@ -1,8 +1,7 @@
-from random import randint
-
 import WasmEdge
 
 from WasmEdgeBindgen import bindgen
+from WasmEdgeBindgen.utils import int_from_bytes, uint_from_bytes
 
 WasmEdge.Logging.error()
 cfx = WasmEdge.Configure()
@@ -24,8 +23,18 @@ res, data = b.execute(function_name="say_string", args="hello from python")
 print(bytes(data))
 b.deallocator()
 
-num = randint(0, 100)
+res, data = b.execute(
+    function_name="say_three_strings", args=["hello", "from", "python"]
+)
+print(bytes(data))
+b.deallocator()
+
+num = 2**32 - 1
 res, data = b.execute(function_name="say_number", args=num)
-assert int.from_bytes(data, "little") == num
-print(int.from_bytes(data, "little"))
+assert uint_from_bytes(data) == num
+b.deallocator()
+
+num = -(2**16) + 1
+res, data = b.execute(function_name="say_number", args=num)
+assert int_from_bytes(data) == num
 b.deallocator()
