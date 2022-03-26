@@ -1,6 +1,6 @@
 import WasmEdge
 
-from .consts import I32, I32Array, String
+from .consts import I32, ByteArray, I32Array, String
 from .utils import int_to_bytes, uint_from_bytes, uint_to_bytes
 
 
@@ -29,8 +29,7 @@ class Bindgen:
             if __debug__:
                 assert res
 
-            if uint_from_bytes(type) == String:
-                print("It is a string")
+            if uint_from_bytes(type) in [String, ByteArray]:
                 res, ptr_size = memory.GetData(size * 4, ptr.Value + 8)
                 if __debug__:
                     assert res
@@ -43,7 +42,6 @@ class Bindgen:
                 self.result = res
                 self.output = data
             elif uint_from_bytes(type) == I32:
-                print("It is an I32")
                 res, ptr_size = memory.GetData(size * 4, ptr.Value + 8)
                 if __debug__:
                     assert res
@@ -56,7 +54,7 @@ class Bindgen:
                 self.result = res
                 self.output = data
             else:
-                print(type)
+                print("Unknown type: " + str(uint_from_bytes(type)))
 
             return res, []
 
@@ -85,114 +83,44 @@ class Bindgen:
         self.pop = []
         self.length_pop = []
 
-    def execute(self, function_name, args):
-        allocate_len = 1
+    def execute(self, function_name, *args):
         execution_type = 1
-        function_arg_len = 1
-        if isinstance(args, str):
-            args = bytes(args, "UTF-8")
-        elif isinstance(args, int):
-            args = int_to_bytes(args)
-        elif isinstance(args, (tuple, list)) and all(
-            x == int for x in list(map(type, args))
-        ):
-            allocate_len = len(args)
-            args = [int_to_bytes(i) for i in args]
-            execution_type = I32Array
-        elif isinstance(args, (tuple, list)) and all(
-            x == str for x in list(map(type, args))
-        ):
-            allocate_len = len(args)
-            args = [bytes(i, "UTF-8") for i in args]
-            execution_type = 3
-            function_arg_len = len(args)
-        else:
-            raise TypeError(f"Unsupported type:{type(args)}")
-
+        function_arg_len = len(args)
         memory = self.vm.GetStoreContext().FindMemory("memory")
 
-        if execution_type == I32Array:
-            res, pointer_of_pointers = self.vm.Execute(
-                "allocate",
-                tuple([WasmEdge.Value(8 * 1, WasmEdge.Type.I32)]),
-                1,
-            )
-            assert res
+        res, pointer_of_pointers = self.vm.Execute(
+            "allocate",
+            tuple([WasmEdge.Value(8 * function_arg_len, WasmEdge.Type.I32)]),
+            1,
+        )
+        assert res
 
-            self.pop.extend(pointer_of_pointers)
-            self.length_pop.append(8 * 1)
+        self.pop.extend(pointer_of_pointers)
+        self.length_pop.append(8 * function_arg_len)
 
-            res, ptr = self.vm.Execute(
-                "allocate",
-                tuple(
-                    [
-                        WasmEdge.Value(4 * len(args), WasmEdge.Type.I32),
-                    ]
-                ),
-                1,
-            )
-            assert res
+        for i, arg in enumerate(args):
+            offset = 4 * 2 * i
+            len_offset = offset + 4
+            if isinstance(arg, str):
+                arg = bytes(arg, "UTF-8")
+                execution_type = String
+            elif isinstance(arg, int):
+                arg = int_to_bytes(arg)
+                execution_type = I32
+            elif isinstance(arg, (tuple, list)) and all(
+                x == int for x in list(map(type, arg))
+            ):
+                arg = [int_to_bytes(i) for i in arg]
+                execution_type = I32Array
+            else:
+                raise TypeError(f"Unsupported type:{type(arg)}")
 
-            self.pop.extend(ptr)
-            self.length_pop.append(4 * len(args))
-
-            prev_len = 0
-            for i, data in enumerate(args):
-                assert memory.SetData(tuple(data), ptr[0].Value + prev_len)
-                _, d = memory.GetData(len(data), ptr[0].Value + prev_len)
-                assert _
-                assert uint_from_bytes(d) == uint_from_bytes(data)
-                prev_len += len(data)
-
-            assert memory.SetData(
-                tuple(uint_to_bytes(ptr[0].Value)),
-                pointer_of_pointers[0].Value,
-            )
-
-            assert memory.SetData(
-                tuple(uint_to_bytes(len(args))),
-                pointer_of_pointers[0].Value + 4,
-            )
-
-            _, ptr_of_ptr_data = memory.GetData(
-                8, pointer_of_pointers[0].Value
-            )
-            assert _
-            assert uint_from_bytes(ptr_of_ptr_data[:4]) == ptr[0].Value
-            assert uint_from_bytes(ptr_of_ptr_data[4:]) == len(args), (
-                uint_from_bytes(ptr_of_ptr_data[4:]),
-                len(args),
-            )
-
-            res, _ = self.vm.Execute(
-                function_name,
-                tuple(
-                    [
-                        pointer_of_pointers[0],
-                        WasmEdge.Value(function_arg_len, WasmEdge.Type.I32),
-                    ]
-                ),
-                0,
-            )
-            assert res
-            return self.result, self.output
-        elif execution_type == 3:
-            res, pointer_of_pointers = self.vm.Execute(
-                "allocate",
-                tuple([WasmEdge.Value(8 * len(args), WasmEdge.Type.I32)]),
-                1,
-            )
-            assert res
-
-            self.pop.extend(pointer_of_pointers)
-            self.length_pop.append(8 * len(args))
-
-            for i, data in enumerate(args):
+            if execution_type == I32Array:
                 res, ptr = self.vm.Execute(
                     "allocate",
                     tuple(
                         [
-                            WasmEdge.Value(4 * len(data), WasmEdge.Type.I32),
+                            WasmEdge.Value(4 * len(arg), WasmEdge.Type.I32),
                         ]
                     ),
                     1,
@@ -200,107 +128,94 @@ class Bindgen:
                 assert res
 
                 self.pop.extend(ptr)
-                self.length_pop.append(4 * len(data))
+                self.length_pop.append(4 * len(arg))
 
-                assert memory.SetData(tuple(data), ptr[0].Value)
-
-                _, d = memory.GetData(len(data), ptr[0].Value)
-                assert _
-                assert uint_from_bytes(d) == uint_from_bytes(data)
+                prev_len = 0
+                for i, data in enumerate(arg):
+                    assert memory.SetData(tuple(data), ptr[0].Value + prev_len)
+                    _, d = memory.GetData(len(data), ptr[0].Value + prev_len)
+                    assert _
+                    assert uint_from_bytes(d) == uint_from_bytes(data)
+                    prev_len += len(data)
 
                 assert memory.SetData(
                     tuple(uint_to_bytes(ptr[0].Value)),
-                    pointer_of_pointers[0].Value + 2 * 4 * i,
+                    pointer_of_pointers[0].Value + offset,
                 )
+
                 assert memory.SetData(
-                    tuple(uint_to_bytes(len(data))),
-                    pointer_of_pointers[0].Value + 4 * (2 * i + 1),
+                    tuple(uint_to_bytes(len(arg))),
+                    pointer_of_pointers[0].Value + len_offset,
                 )
 
                 _, ptr_of_ptr_data = memory.GetData(
-                    8, pointer_of_pointers[0].Value + 2 * 4 * i
+                    8, pointer_of_pointers[0].Value + offset
                 )
                 assert _
                 assert uint_from_bytes(ptr_of_ptr_data[:4]) == ptr[0].Value
-                assert uint_from_bytes(ptr_of_ptr_data[4:]) == len(data)
+                assert uint_from_bytes(ptr_of_ptr_data[4:]) == len(arg), (
+                    uint_from_bytes(ptr_of_ptr_data[4:]),
+                    len(arg),
+                )
 
-            res, _ = self.vm.Execute(
-                function_name,
-                tuple(
-                    [
-                        pointer_of_pointers[0],
-                        WasmEdge.Value(function_arg_len, WasmEdge.Type.I32),
-                    ]
-                ),
-                0,
-            )
-            assert res
-            return self.result, self.output
-        elif execution_type == 1:
-            res, pointer_of_pointers = self.vm.Execute(
-                "allocate",
-                tuple([WasmEdge.Value(8 * 1, WasmEdge.Type.I32)]),
-                1,
-            )
-            assert res
+            elif execution_type in [String, I32]:
+                res, ptr = self.vm.Execute(
+                    "allocate",
+                    tuple(
+                        [
+                            WasmEdge.Value(4 * len(arg), WasmEdge.Type.I32),
+                        ]
+                    ),
+                    1,
+                )
+                assert res
 
-            self.pop.extend(pointer_of_pointers)
-            self.length_pop.append(8 * allocate_len)
+                self.pop.extend(ptr)
+                self.length_pop.append(4 * len(arg))
 
-            res, ptr = self.vm.Execute(
-                "allocate",
-                tuple(
-                    [
-                        WasmEdge.Value(4 * len(args), WasmEdge.Type.I32),
-                    ]
-                ),
-                1,
-            )
-            assert res
+                assert memory.SetData(tuple(arg), ptr[0].Value)
 
-            self.pop.extend(ptr)
-            self.length_pop.append(4 * len(args))
+                assert memory.SetData(
+                    tuple(uint_to_bytes(ptr[0].Value)),
+                    pointer_of_pointers[0].Value + offset,
+                )
 
-            assert memory.SetData(tuple(args), ptr[0].Value)
+                assert memory.SetData(
+                    tuple(uint_to_bytes(len(arg))),
+                    pointer_of_pointers[0].Value + len_offset,
+                )
 
-            assert memory.SetData(
-                tuple(uint_to_bytes(ptr[0].Value)),
-                pointer_of_pointers[0].Value,
-            )
+                _, d = memory.GetData(len(arg), ptr[0].Value)
+                assert _
+                assert bytes(d) == arg
 
-            assert memory.SetData(
-                tuple(uint_to_bytes(len(args))),
-                pointer_of_pointers[0].Value + 4,
-            )
+                _, ptr_of_ptr_data = memory.GetData(
+                    4, pointer_of_pointers[0].Value + offset
+                )
+                assert _
+                assert uint_from_bytes(ptr_of_ptr_data) == ptr[0].Value
 
-            _, d = memory.GetData(len(args), ptr[0].Value)
-            assert _
-            assert bytes(d) == args
+                _, ptr_of_ptr_data_len = memory.GetData(
+                    4, pointer_of_pointers[0].Value + len_offset
+                )
+                assert _
+                assert uint_from_bytes(ptr_of_ptr_data_len) == len(arg)
+            else:
+                self.deallocator()
+                raise TypeError("Unknown Type")
 
-            _, ptr_of_ptr_data = memory.GetData(
-                4, pointer_of_pointers[0].Value
-            )
-            assert _
-            assert uint_from_bytes(ptr_of_ptr_data) == ptr[0].Value
-
-            _, ptr_of_ptr_data_len = memory.GetData(
-                4, pointer_of_pointers[0].Value + 4
-            )
-            assert _
-            assert uint_from_bytes(ptr_of_ptr_data_len) == len(args)
-
-            res, _ = self.vm.Execute(
-                function_name,
-                tuple(
-                    [
-                        pointer_of_pointers[0],
-                        WasmEdge.Value(1, WasmEdge.Type.I32),
-                    ]
-                ),
-                0,
-            )
-            assert res
-            return self.result, self.output
+        res, _ = self.vm.Execute(
+            function_name,
+            tuple(
+                [
+                    pointer_of_pointers[0],
+                    WasmEdge.Value(function_arg_len, WasmEdge.Type.I32),
+                ]
+            ),
+            0,
+        )
+        assert res
+        return self.result, self.output
 
     def deallocator(self):
         for ptr, len in zip(self.pop, self.length_pop):

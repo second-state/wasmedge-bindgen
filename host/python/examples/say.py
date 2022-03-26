@@ -13,28 +13,24 @@ vm.LoadWasmFromFile(
 vm.Validate()
 b = bindgen.Bindgen(vm)
 
-res, data = b.execute(
-    function_name="say_veci32", args=tuple([i for i in range(0, 10)])
-)
+res, data = b.execute("say_veci32", [i for i in range(0, 10)])
 print(bytes(data))
 b.deallocator()
 
-res, data = b.execute(function_name="say_string", args="hello from python")
+res, data = b.execute("say_string", "hello from python")
 print(bytes(data))
 b.deallocator()
 
-res, data = b.execute(
-    function_name="say_three_strings", args=["hello", "from", "python"]
-)
+res, data = b.execute("say_three_strings", "hello", "from", "python")
 print(bytes(data))
 b.deallocator()
 
 num = 2**32 - 1
-res, data = b.execute(function_name="say_number", args=num)
+res, data = b.execute("say_number", num)
 assert uint_from_bytes(data) == num
 b.deallocator()
 
 num = -(2**16) + 1
-res, data = b.execute(function_name="say_number", args=num)
+res, data = b.execute("say_number", num)
 assert int_from_bytes(data) == num
 b.deallocator()
