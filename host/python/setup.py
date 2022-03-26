@@ -22,7 +22,7 @@ def read(*paths, **kwargs):
 
 setup(
     name="WasmEdgeBindgen",
-    version="0.1.0",
+    version=read("VERSION"),
     description="WasmEdge Bindgen on top of WasmEdge Python SDK",
     long_description=read("README.md"),    
     long_description_content_type="text/markdown",
