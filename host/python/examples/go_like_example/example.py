@@ -1,3 +1,4 @@
+import math
 import os
 import sys
 from hashlib import sha3_256
@@ -6,6 +7,7 @@ import WasmEdge
 from Crypto.Hash import keccak
 
 from WasmEdgeBindgen import bindgen
+from WasmEdgeBindgen.utils import uint_from_bytes
 
 WasmEdge.Logging().error()
 
@@ -63,7 +65,9 @@ bg.deallocator()
 # lowest_common_multiple: i32, i32 -> i32
 err, res = bg.execute("lowest_common_multiple", 123, 2)
 assert err
-print("Run bindgen -- lowest_common_multiple:" + str(res))
+lcm = uint_from_bytes(res)
+assert lcm == abs(123 * 2) // math.gcd(123, 2)
+print("Run bindgen -- lowest_common_multiple:" + str(lcm))
 bg.deallocator()
 
 # sha3_digest: array -> array
