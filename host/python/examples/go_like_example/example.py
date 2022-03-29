@@ -22,11 +22,13 @@ vm = WasmEdge.VM(conf)
 wasi = vm.GetImportModuleContext(WasmEdge.Host.Wasi)
 wasi.InitWASI(
     tuple(
-        sys.argv[1:],
+        sys.argv,
     ),  # The args
-    tuple(os.environ),  # The envs
+    tuple([f"{k}={v}" for k, v in os.environ.items()]),  # The envs
     tuple(
-        ".:.",
+        [
+            ".:.",
+        ]
     ),  # The mapping preopens
 )
 
