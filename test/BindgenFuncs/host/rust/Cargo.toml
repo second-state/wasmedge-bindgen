@@ -6,5 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wasmedge-sys = { version = "0.2.0", path = "../../../../../WasmEdge/bindings/rust/wasmedge-sys" }
+wasmedge-sys = "0.3.0"
 wasmedge-bindgen-host = { path = "../../../../host/rust" }

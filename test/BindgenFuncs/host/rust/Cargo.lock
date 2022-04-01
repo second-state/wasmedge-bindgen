@@ -308,7 +308,9 @@ dependencies = [
 
 [[package]]
 name = "wasmedge-sys"
-version = "0.2.2"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8bcd56210b5d613df44c97e41811011532519b4e214d86bda0428f97b8e877a0"
 dependencies = [
  "bindgen",
  "libc",
