@@ -713,7 +713,9 @@ func (b *Bindgen) getString(d []byte) string {
 }
 
 func (b *Bindgen) getByteSlice(d []byte) []byte {
-	return d
+	x := make([]byte, len(d))
+	ss := copy(x, d)
+	return x
 }
 
 func (b *Bindgen) getI8Slice(d []byte) []int8 {

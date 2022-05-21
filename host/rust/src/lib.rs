@@ -406,7 +406,12 @@ fn return_result(tx: Sender<Result<Vec<Box<dyn Any>>, String>>, store: Store) ->
 					results.push(Box::new(char::from_u32(v)));
 				}
 				Some(RetTypes::U8Array) => {
-					results.push(Box::new(bytes));
+					let len = bytes.len();
+					let mut v = vec![0; len];
+					for i in 0..len {
+						v[i] = bytes[i] as u8;
+					}
+					results.push(Box::new(v));
 				}
 				Some(RetTypes::I8Array) => {
 					let len = bytes.len();
