@@ -714,7 +714,7 @@ func (b *Bindgen) getString(d []byte) string {
 
 func (b *Bindgen) getByteSlice(d []byte) []byte {
 	x := make([]byte, len(d))
-	ss := copy(x, d)
+	copy(x, d)
 	return x
 }
 
