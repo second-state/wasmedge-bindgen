@@ -40,7 +40,7 @@ type Bindgen struct {
 	resultChan chan []interface{}
 	errChan    chan error
 
-	funcImports *wasmedge.ImportObject
+	funcImports *wasmedge.Module
 }
 
 func Instantiate(vm *wasmedge.VM) *Bindgen {
@@ -58,14 +58,14 @@ func Instantiate(vm *wasmedge.VM) *Bindgen {
 }
 
 func (b *Bindgen) init() {
-	funcImports := wasmedge.NewImportObject("wasmedge-bindgen")
+	funcImports := wasmedge.NewModule("wasmedge-bindgen")
 
 	resultFn := b.newHostFns(b.return_result, "return_result")
 	funcImports.AddFunction("return_result", resultFn)
 	errorFn := b.newHostFns(b.return_error, "return_error")
 	funcImports.AddFunction("return_error", errorFn)
 
-	b.vm.RegisterImport(funcImports)
+	b.vm.RegisterModule(funcImports)
 
 	b.funcImports = funcImports
 }
@@ -81,7 +81,7 @@ func (b *Bindgen) Execute(funcName string, inputs... interface{}) ([]interface{}
 	pointerOfPointers := allocateResult[0].(int32)
 	defer b.vm.Execute("deallocate", pointerOfPointers, int32(inputsCount * 4 * 2))
 	
-	memory := b.vm.GetStore().FindMemory("memory")
+	memory := b.vm.GetActiveModule().FindMemory("memory")
 	if memory == nil {
 		return nil, errors.New("Memory not found")
 	}
@@ -181,7 +181,7 @@ func (b *Bindgen) executionResult() ([]interface{}, error) {
 }
 
 func (b *Bindgen) return_result(pointer int32, size int32) {
-	memory := b.vm.GetStore().FindMemory("memory")
+	memory := b.vm.GetActiveModule().FindMemory("memory")
 	if memory == nil {
 		return
 	}
@@ -258,7 +258,7 @@ func (b *Bindgen) return_result(pointer int32, size int32) {
 }
 
 func (b *Bindgen) return_error(pointer int32, size int32) {
-	memory := b.vm.GetStore().FindMemory("memory")
+	memory := b.vm.GetActiveModule().FindMemory("memory")
 	if memory == nil {
 		return
 	}

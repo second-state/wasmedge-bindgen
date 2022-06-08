@@ -4,8 +4,8 @@ use std::path::Path;
 use wasmedge_bindgen_host::*;
 
 fn main() {
-	let config = Config::create().unwrap();
-	let config = config.wasi(true);
+	let mut config = Config::create().unwrap();
+	config.wasi(true);
 
 	let mut vm = Vm::create(Some(config), None).unwrap();
 
@@ -14,7 +14,7 @@ fn main() {
 	let _ = vm.load_wasm_from_file(wasm_path);
 	let _ = vm.validate();
 
-	let mut bg = Bindgen::new(&mut vm);
+	let mut bg = Bindgen::new(vm);
 
 	// create_line: string, string, string -> string (inputs are JSON stringified)	
 	let params = vec![Param::String("{\"x\":2.5,\"y\":7.8}".to_string()), Param::String("{\"x\":2.5,\"y\":5.8}".to_string()), Param::String("A thin red line".to_string())];
