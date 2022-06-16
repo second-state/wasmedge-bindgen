@@ -505,73 +505,73 @@ fn parse_params(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::Tok
 							"bool" => {
 								arg_names.push(quote::format_ident!("arg{}", pos));
 								arg_values.push(quote! {
-									*(pointer as *const bool)
+									Vec::from_raw_parts(pointer as *mut bool, size as usize, size as usize)[0]
 								})
 							}
 							"char" => {
 								arg_names.push(quote::format_ident!("arg{}", pos));
 								arg_values.push(quote! {
-									*(pointer as *const char)
+									Vec::from_raw_parts(pointer as *mut char, size as usize, size as usize)[0]
 								})
 							}
 							"i8" => {
 								arg_names.push(quote::format_ident!("arg{}", pos));
 								arg_values.push(quote! {
-									*(pointer as *const i8)
+									Vec::from_raw_parts(pointer as *mut i8, size as usize, size as usize)[0]
 								})
 							}
 							"u8" => {
 								arg_names.push(quote::format_ident!("arg{}", pos));
 								arg_values.push(quote! {
-									*(pointer as *const u8)
+									Vec::from_raw_parts(pointer as *mut u8, size as usize, size as usize)[0]
 								})
 							}
 							"i16" => {
 								arg_names.push(quote::format_ident!("arg{}", pos));
 								arg_values.push(quote! {
-									*(pointer as *const i16)
+									Vec::from_raw_parts(pointer as *mut i16, size as usize, size as usize)[0]
 								})
 							}
 							"u16" => {
 								arg_names.push(quote::format_ident!("arg{}", pos));
 								arg_values.push(quote! {
-									*(pointer as *const u16)
+									Vec::from_raw_parts(pointer as *mut u16, size as usize, size as usize)[0]
 								})
 							}
 							"i32" => {
 								arg_names.push(quote::format_ident!("arg{}", pos));
 								arg_values.push(quote! {
-									*(pointer as *const i32)
+									Vec::from_raw_parts(pointer as *mut i32, size as usize, size as usize)[0]
 								})
 							}
 							"u32" => {
 								arg_names.push(quote::format_ident!("arg{}", pos));
 								arg_values.push(quote! {
-									*(pointer as *const u32)
+									Vec::from_raw_parts(pointer as *mut u32, size as usize, size as usize)[0]
 								})
 							}
 							"i64" => {
 								arg_names.push(quote::format_ident!("arg{}", pos));
 								arg_values.push(quote! {
-									*(pointer as *const i64)
+									Vec::from_raw_parts(pointer as *mut i64, size as usize, size as usize)[0]
 								})
 							}
 							"u64" => {
 								arg_names.push(quote::format_ident!("arg{}", pos));
 								arg_values.push(quote! {
-									*(pointer as *const u64)
+									Vec::from_raw_parts(pointer as *mut u64, size as usize, size as usize)[0]
 								})
 							}
 							"f32" => {
 								arg_names.push(quote::format_ident!("arg{}", pos));
 								arg_values.push(quote! {
-									*(pointer as *const f32)
+									Vec::from_raw_parts(pointer as *mut f32, size as usize, size as usize)[0]
 								})
 							}
 							"f64" => {
 								arg_names.push(quote::format_ident!("arg{}", pos));
 								arg_values.push(quote! {
-									*(pointer as *const f64)
+									Vec::from_raw_parts(pointer as *mut f64, size as usize, size as usize)[0]
 								})
 							}
 							"String" => {

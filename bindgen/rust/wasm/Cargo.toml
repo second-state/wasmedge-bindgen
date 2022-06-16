@@ -1,6 +1,6 @@
 [package]
 name = "wasmedge-bindgen"
-version = "0.1.13"
+version = "0.1.14"
 edition = "2021"
 description = "Pass string, vec and primitive types from host to webassembly"
 license = "MIT/Apache-2.0"

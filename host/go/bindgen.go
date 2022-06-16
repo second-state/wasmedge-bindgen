@@ -87,69 +87,49 @@ func (b *Bindgen) Execute(funcName string, inputs... interface{}) ([]interface{}
 	}
 
 	for idx, inp := range inputs {
-		var pointer, lengthOfInput, byteLengthOfInput int32
+		var pointer, lengthOfInput int32
 		var err error
 		switch input := inp.(type) {
 		case []byte:
 			pointer, lengthOfInput, err = b.settleByteSlice(memory, input)
-			byteLengthOfInput = lengthOfInput
 		case []int8:
 			pointer, lengthOfInput, err = b.settleI8Slice(memory, input)
-			byteLengthOfInput = lengthOfInput
 		case []uint16:
 			pointer, lengthOfInput, err = b.settleU16Slice(memory, input)
-			byteLengthOfInput = lengthOfInput * 2
 		case []int16:
 			pointer, lengthOfInput, err = b.settleI16Slice(memory, input)
-			byteLengthOfInput = lengthOfInput * 2
 		case []uint32:
 			pointer, lengthOfInput, err = b.settleU32Slice(memory, input)
-			byteLengthOfInput = lengthOfInput * 4
 		case []int32:
 			pointer, lengthOfInput, err = b.settleI32Slice(memory, input)
-			byteLengthOfInput = lengthOfInput * 4
 		case []uint64:
 			pointer, lengthOfInput, err = b.settleU64Slice(memory, input)
-			byteLengthOfInput = lengthOfInput * 8
 		case []int64:
 			pointer, lengthOfInput, err = b.settleI64Slice(memory, input)
-			byteLengthOfInput = lengthOfInput * 8
 		case bool:
 			pointer, lengthOfInput, err = b.settleBool(memory, input)
-			byteLengthOfInput = lengthOfInput
 		case int8:
 			pointer, lengthOfInput, err = b.settleI8(memory, input)
-			byteLengthOfInput = lengthOfInput
 		case uint8:
 			pointer, lengthOfInput, err = b.settleU8(memory, input)
-			byteLengthOfInput = lengthOfInput
 		case int16:
 			pointer, lengthOfInput, err = b.settleI16(memory, input)
-			byteLengthOfInput = lengthOfInput * 2
 		case uint16:
 			pointer, lengthOfInput, err = b.settleU16(memory, input)
-			byteLengthOfInput = lengthOfInput * 2
 		case int32:
 			pointer, lengthOfInput, err = b.settleI32(memory, input)
-			byteLengthOfInput = lengthOfInput * 4
 		case uint32:
 			pointer, lengthOfInput, err = b.settleU32(memory, input)
-			byteLengthOfInput = lengthOfInput * 4
 		case int64:
 			pointer, lengthOfInput, err = b.settleI64(memory, input)
-			byteLengthOfInput = lengthOfInput * 8
 		case uint64:
 			pointer, lengthOfInput, err = b.settleU64(memory, input)
-			byteLengthOfInput = lengthOfInput * 8
 		case float32:
 			pointer, lengthOfInput, err = b.settleF32(memory, input)
-			byteLengthOfInput = lengthOfInput * 4
 		case float64:
 			pointer, lengthOfInput, err = b.settleF64(memory, input)
-			byteLengthOfInput = lengthOfInput * 8
 		case string:
 			pointer, lengthOfInput, err = b.settleString(memory, input)
-			byteLengthOfInput = lengthOfInput
 		default:
 			return nil, errors.New(fmt.Sprintf("Unsupported arg type %T", input))
 		}
@@ -157,7 +137,6 @@ func (b *Bindgen) Execute(funcName string, inputs... interface{}) ([]interface{}
 			return nil, err
 		}
 		b.putPointerOfPointer(pointerOfPointers, memory, idx, pointer, lengthOfInput)
-		defer b.vm.Execute("deallocate", pointer, byteLengthOfInput)
 	}
 	
 	if _, err = b.vm.Execute(funcName, pointerOfPointers, int32(inputsCount)); err != nil {
