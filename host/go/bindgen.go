@@ -43,7 +43,7 @@ type Bindgen struct {
 	funcImports *wasmedge.Module
 }
 
-func Instantiate(vm *wasmedge.VM) *Bindgen {
+func New(vm *wasmedge.VM) *Bindgen {
 	b := &Bindgen {
 		vm:          vm,
 		resultChan:  make(chan []interface{}, 1),
@@ -51,8 +51,6 @@ func Instantiate(vm *wasmedge.VM) *Bindgen {
 	}
 
 	b.init()
-
-	b.vm.Instantiate()
 
 	return b
 }
@@ -68,6 +66,14 @@ func (b *Bindgen) init() {
 	b.vm.RegisterModule(funcImports)
 
 	b.funcImports = funcImports
+}
+
+func (b *Bindgen) Instantiate() {
+	b.vm.Instantiate()
+}
+
+func (b *Bindgen) GetVm() *wasmedge.VM {
+	return b.vm
 }
 
 func (b *Bindgen) Execute(funcName string, inputs... interface{}) ([]interface{}, error) {

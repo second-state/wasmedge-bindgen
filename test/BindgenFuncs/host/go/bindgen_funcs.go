@@ -34,7 +34,8 @@ func main() {
 	vm.Validate()
 
 	// Instantiate the bindgen and vm
-	bg := bindgen.Instantiate(vm)
+	bg := bindgen.New(vm)
+	bg.Instantiate()
 
 	/// create_line: string, string, string -> string (inputs are JSON stringified)	
 	res, err := bg.Execute("create_line", "{\"x\":2.5,\"y\":7.8}", "{\"x\":2.5,\"y\":5.8}", "A thin red line")

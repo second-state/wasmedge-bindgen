@@ -309,6 +309,9 @@ impl Clone for Bindgen {
 	}
 }
 
+unsafe impl Send for Bindgen {}
+unsafe impl Sync for Bindgen {}
+
 impl Bindgen {
 	pub fn new(vm: Vm) -> Self {
 		let (tx, rx): (Sender<Result<Vec<Box<dyn Any + Send + Sync>>, String>>, Receiver<Result<Vec<Box<dyn Any + Send + Sync>>, String>>) = channel();
@@ -337,9 +340,18 @@ impl Bindgen {
 		imp_obj.add_func("return_error", func);
 
 		_ = b.vm.register_wasm_from_import(ImportObject::Import(imp_obj));
-		_ = b.vm.instantiate();
 
 		b
+	}
+
+	pub fn instantiate(&mut self) {
+		_ = self.vm.instantiate();
+	}
+
+	pub fn vm(&mut self) -> &mut Vm {
+		unsafe {
+			self.vm.inner.as_mut()
+		}
 	}
 
 	pub fn run_wasm(&mut self, func_name: impl AsRef<str>, inputs: Vec<Param>) -> WasmEdgeResult<Result<Vec<Box<dyn Any + Send + Sync>>, String>> {

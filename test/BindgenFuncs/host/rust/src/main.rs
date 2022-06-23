@@ -9,12 +9,22 @@ fn main() {
 
 	let mut vm = Vm::create(Some(config), None).unwrap();
 
+	// get default wasi module
+	let mut wasi_module = vm.wasi_module_mut().unwrap();
+	// init the default wasi module
+	wasi_module.init_wasi(
+		Some(vec![]),
+		Some(vec![]),
+		Some(vec![]),
+	);
+
 	let args: Vec<String> = env::args().collect();
 	let wasm_path = Path::new(&args[1]);
 	let _ = vm.load_wasm_from_file(wasm_path);
 	let _ = vm.validate();
 
 	let mut bg = Bindgen::new(vm);
+	bg.instantiate();
 
 	// create_line: string, string, string -> string (inputs are JSON stringified)	
 	let params = vec![Param::String("{\"x\":2.5,\"y\":7.8}".to_string()), Param::String("{\"x\":2.5,\"y\":5.8}".to_string()), Param::String("A thin red line".to_string())];
