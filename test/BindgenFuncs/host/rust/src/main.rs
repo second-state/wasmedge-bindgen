@@ -40,7 +40,8 @@ fn main() {
 	let params = vec![Param::String("bindgen funcs test".to_string())];
 	match bg.run_wasm("say", params) {
 		Ok(rv) => {
-			println!("Run bindgen -- say: {:?}", rv.unwrap().pop().unwrap().downcast::<String>().unwrap());
+			let mut x = rv.unwrap();
+			println!("Run bindgen -- say: {:?} {}", x.pop().unwrap().downcast::<String>().unwrap(), x.pop().unwrap().downcast::<u16>().unwrap());
 		}
 		Err(e) => {
 			println!("Run bindgen -- say FAILED {:?}", e);

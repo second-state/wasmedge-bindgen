@@ -32,9 +32,9 @@ pub fn create_line(p1: String, p2: String, desc: String) -> String {
 }
 
 #[wasmedge_bindgen]
-pub fn say(s: String) -> String {
+pub fn say(s: String) -> (u16, String) {
   let r = String::from("hello ");
-  return r + s.as_str();
+  return (5 as u16, r + s.as_str());
 }
 
 #[wasmedge_bindgen]

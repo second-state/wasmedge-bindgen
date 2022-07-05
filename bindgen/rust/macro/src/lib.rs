@@ -61,12 +61,24 @@ pub fn wasmedge_bindgen(_: TokenStream, item: TokenStream) -> TokenStream {
 						result_vec[#ret_i * 3] = #ret_pointers;
 						result_vec[#ret_i * 3 + 1] = #ret_types;
 						result_vec[#ret_i * 3 + 2] = #ret_sizes;
-						std::mem::forget(#ret_names);
+						let _ = std::mem::ManuallyDrop::new(#ret_names);
 					)*
-					return_result(result_vec.as_ptr(), #ret_len as i32);
+					let result_vec = std::mem::ManuallyDrop::new(result_vec);
+					// return_result
+					let mut rvec = vec![0 as u8; 9];
+					rvec.splice(1..5, (result_vec.as_ptr() as i32).to_le_bytes());
+					rvec.splice(5..9, (#ret_len as i32).to_le_bytes());
+					let rvec = std::mem::ManuallyDrop::new(rvec);
+					return rvec.as_ptr() as i32;
 				}
 				Err(message) => {
-					return_error(message.as_ptr(), message.len() as i32);
+					let message = std::mem::ManuallyDrop::new(message);
+					// return_error
+					let mut rvec = vec![1 as u8; 9];
+					rvec.splice(1..5, (message.as_ptr() as i32).to_le_bytes());
+					rvec.splice(5..9, (message.len() as i32).to_le_bytes());
+					let rvec = std::mem::ManuallyDrop::new(rvec);
+					return rvec.as_ptr() as i32;
 				}
 			}
 		},
@@ -77,16 +89,22 @@ pub fn wasmedge_bindgen(_: TokenStream, item: TokenStream) -> TokenStream {
 				result_vec[#ret_i * 3] = #ret_pointers;
 				result_vec[#ret_i * 3 + 1] = #ret_types;
 				result_vec[#ret_i * 3 + 2] = #ret_sizes;
-				std::mem::forget(#ret_names);
+				let _ = std::mem::ManuallyDrop::new(#ret_names);
 			)*
-			return_result(result_vec.as_ptr(), #ret_len as i32);
+			let result_vec = std::mem::ManuallyDrop::new(result_vec);
+			// return_result
+			let mut rvec = vec![0 as u8; 9];
+			rvec.splice(1..5, (result_vec.as_ptr() as i32).to_le_bytes());
+			rvec.splice(5..9, (#ret_len as i32).to_le_bytes());
+			let rvec = std::mem::ManuallyDrop::new(rvec);
+			return rvec.as_ptr() as i32;
 		}
 	};
 
 	let gen = quote! {
 
 		#[no_mangle]
-		pub unsafe extern "C" fn #func_ident(params_pointer: *mut u32, params_count: i32) {
+		pub unsafe extern "C" fn #func_ident(params_pointer: *mut u32, params_count: i32) -> i32 {
 
 			#[link(wasm_import_module = "wasmedge-bindgen")]
 			extern "C" {
@@ -96,8 +114,13 @@ pub fn wasmedge_bindgen(_: TokenStream, item: TokenStream) -> TokenStream {
 
 			if #params_len != params_count as usize {
 				let err_msg = format!("Invalid params count, expect {}, got {}", #params_len, params_count);
-				return_error(err_msg.as_ptr(), err_msg.len() as i32);
-				return;
+				let err_msg = std::mem::ManuallyDrop::new(err_msg);
+				// return_error
+				let mut rvec = vec![1 as u8; 9];
+				rvec.splice(1..5, (err_msg.as_ptr() as i32).to_le_bytes());
+				rvec.splice(5..9, (err_msg.len() as i32).to_le_bytes());
+				let rvec = std::mem::ManuallyDrop::new(rvec);
+				return rvec.as_ptr() as i32;
 			}
 
 			#(

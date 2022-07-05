@@ -385,13 +385,166 @@ impl Bindgen {
 			memory.set_data(length_of_input.to_le_bytes(), pointer_of_pointers as u32 + pos as u32 * 4 * 2 + 4)?;
 		}
 
-		self.vm.run_function(func_name, vec![WasmValue::from_i32(pointer_of_pointers), WasmValue::from_i32(inputs_count)])?;
+		let rets = self.vm.run_function(func_name, vec![WasmValue::from_i32(pointer_of_pointers), WasmValue::from_i32(inputs_count)])?;
+		if rets.len() != 1 {
+			return Ok(Err(String::from("Invalid return value")));
+		}
+		let rvec = memory.get_data(rets[0].to_i32() as u32, 9)?;
 
-		self.vm.run_function("deallocate", vec![WasmValue::from_i32(pointer_of_pointers), WasmValue::from_i32(inputs_count * 4 * 2)])?;
+		let flag = rvec[0];
+		let ret_pointer = i32::from_le_bytes(rvec[1..5].try_into().unwrap());
+		let ret_len = i32::from_le_bytes(rvec[5..9].try_into().unwrap());
+		match flag {
+			0 => Ok(Ok(self.parse_result(ret_pointer, ret_len))),
+			_ => Ok(Err(self.parse_error(ret_pointer, ret_len))),
+		}
 
-		let result = self.rx.recv().unwrap();
+		// self.vm.run_function("deallocate", vec![WasmValue::from_i32(pointer_of_pointers), WasmValue::from_i32(inputs_count * 4 * 2)])?;
 
-		return Ok(result);
+		// let result = self.rx.recv().unwrap();
+
+		// return Ok(result);
+	}
+
+	fn parse_error(&self, ret_pointer: i32, ret_len: i32) -> String {
+		let memory = self.vm.active_module().unwrap().get_memory("memory").unwrap();
+		let err_bytes = memory.get_data(ret_pointer as u32, ret_len as u32).unwrap();
+		String::from_utf8(err_bytes).unwrap_or_default()
+	}
+
+	fn parse_result(&self, ret_pointer: i32, ret_len: i32) -> Vec<Box<dyn Any + Send + Sync>> {
+		let size = ret_len as usize;
+		let memory = self.vm.active_module().unwrap().get_memory("memory").unwrap();
+		let p_data = memory.get_data(ret_pointer as u32, size as u32 * 3 * 4).unwrap();
+
+		let mut p_values = vec![0; size * 3];
+
+		for i in 0..size * 3 {
+			p_values[i] = i32::from_le_bytes(p_data[i*4..(i+1)*4].try_into().unwrap());
+		}
+
+		let mut results: Vec<Box<dyn Any + Send + Sync>> = Vec::with_capacity(size);
+
+		for i in 0..size {
+			let bytes = memory.get_data(p_values[i*3] as u32, p_values[i*3+2] as u32).unwrap();
+			match FromPrimitive::from_i32(p_values[i*3+1]) {
+				Some(RetTypes::U8) => {
+					results.push(Box::new(bytes[0]));
+				}
+				Some(RetTypes::I8) => {
+					results.push(Box::new(bytes[0] as i8));
+				}
+				Some(RetTypes::U16) => {
+					let v = u16::from_le_bytes(bytes.try_into().unwrap());
+					results.push(Box::new(v));
+				}
+				Some(RetTypes::I16) => {
+					let v = i16::from_le_bytes(bytes.try_into().unwrap());
+					results.push(Box::new(v));
+				}
+				Some(RetTypes::U32) => {
+					let v = u32::from_le_bytes(bytes.try_into().unwrap());
+					results.push(Box::new(v));
+				}
+				Some(RetTypes::I32) => {
+					let v = i32::from_le_bytes(bytes.try_into().unwrap());
+					results.push(Box::new(v));
+				}
+				Some(RetTypes::U64) => {
+					let v = u64::from_le_bytes(bytes.try_into().unwrap());
+					results.push(Box::new(v));
+				}
+				Some(RetTypes::I64) => {
+					let v = i64::from_le_bytes(bytes.try_into().unwrap());
+					results.push(Box::new(v));
+				}
+				Some(RetTypes::F32) => {
+					let v = f32::from_le_bytes(bytes.try_into().unwrap());
+					results.push(Box::new(v));
+				}
+				Some(RetTypes::F64) => {
+					let v = f64::from_le_bytes(bytes.try_into().unwrap());
+					results.push(Box::new(v));
+				}
+				Some(RetTypes::Bool) => {
+					results.push(Box::new(bytes[0] == 1 as u8));
+				}
+				Some(RetTypes::Char) => {
+					let v = u32::from_le_bytes(bytes.try_into().unwrap());
+					results.push(Box::new(char::from_u32(v)));
+				}
+				Some(RetTypes::U8Array) => {
+					let len = bytes.len();
+					let mut v = vec![0; len];
+					for i in 0..len {
+						v[i] = bytes[i] as u8;
+					}
+					results.push(Box::new(v));
+				}
+				Some(RetTypes::I8Array) => {
+					let len = bytes.len();
+					let mut v = vec![0; len];
+					for i in 0..len {
+						v[i] = bytes[i] as i8;
+					}
+					results.push(Box::new(v));
+				}
+				Some(RetTypes::U16Array) => {
+					let len = bytes.len() / 2;
+					let mut v = vec![0; len];
+					for i in 0..len {
+						v[i] = u16::from_le_bytes(bytes[i*2..(i+1)*2].try_into().unwrap());
+					}
+					results.push(Box::new(v));
+				}
+				Some(RetTypes::I16Array) => {
+					let len = bytes.len() / 2;
+					let mut v = vec![0; len];
+					for i in 0..len {
+						v[i] = i16::from_le_bytes(bytes[i*2..(i+1)*2].try_into().unwrap());
+					}
+					results.push(Box::new(v));
+				}
+				Some(RetTypes::U32Array) => {
+					let len = bytes.len() / 4;
+					let mut v = vec![0; len];
+					for i in 0..len {
+						v[i] = u32::from_le_bytes(bytes[i*4..(i+1)*4].try_into().unwrap());
+					}
+					results.push(Box::new(v));
+				}
+				Some(RetTypes::I32Array) => {
+					let len = bytes.len() / 4;
+					let mut v = vec![0; len];
+					for i in 0..len {
+						v[i] = i32::from_le_bytes(bytes[i*4..(i+1)*4].try_into().unwrap());
+					}
+					results.push(Box::new(v));
+				}
+				Some(RetTypes::U64Array) => {
+					let len = bytes.len() / 8;
+					let mut v = vec![0; len];
+					for i in 0..len {
+						v[i] = u64::from_le_bytes(bytes[i*8..(i+1)*8].try_into().unwrap());
+					}
+					results.push(Box::new(v));
+				}
+				Some(RetTypes::I64Array) => {
+					let len = bytes.len() / 8;
+					let mut v = vec![0; len];
+					for i in 0..len {
+						v[i] = i64::from_le_bytes(bytes[i*8..(i+1)*8].try_into().unwrap());
+					}
+					results.push(Box::new(v));
+				}
+				Some(RetTypes::String) => {
+					results.push(Box::new(String::from_utf8(bytes).unwrap()));
+				}
+				None => {}
+			}
+		}
+
+		results
 	}
 
 	fn return_result(&self) -> impl Fn(Vec<WasmValue>) -> Result<Vec<WasmValue>, u8> {
