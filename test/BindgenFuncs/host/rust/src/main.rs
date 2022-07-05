@@ -27,7 +27,7 @@ fn main() {
 	bg.instantiate();
 
 	// create_line: string, string, string -> string (inputs are JSON stringified)	
-	let params = vec![Param::String("{\"x\":2.5,\"y\":7.8}".to_string()), Param::String("{\"x\":2.5,\"y\":5.8}".to_string()), Param::String("A thin red line".to_string())];
+	let params = vec![Param::String("{\"x\":2.5,\"y\":7.8}"), Param::String("{\"x\":2.5,\"y\":5.8}"), Param::String("A thin red line")];
 	match bg.run_wasm("create_line", params) {
 		Ok(rv) => {
 			println!("Run bindgen -- create_line: {:?}", rv.unwrap().pop().unwrap().downcast::<String>().unwrap());
@@ -37,7 +37,7 @@ fn main() {
 		}
 	}
 
-	let params = vec![Param::String("bindgen funcs test".to_string())];
+	let params = vec![Param::String("bindgen funcs test")];
 	match bg.run_wasm("say", params) {
 		Ok(rv) => {
 			let mut x = rv.unwrap();
@@ -48,7 +48,7 @@ fn main() {
 		}
 	}
 
-	let params = vec![Param::String("A quick brown fox jumps over the lazy dog".to_string())];
+	let params = vec![Param::String("A quick brown fox jumps over the lazy dog")];
 	match bg.run_wasm("obfusticate", params) {
 		Ok(rv) => {
 			println!("Run bindgen -- obfusticate: {:?}", rv.unwrap().pop().unwrap().downcast::<String>().unwrap());
@@ -68,7 +68,8 @@ fn main() {
 		}
 	}
 
-	let params = vec![Param::VecU8("This is an important message".as_bytes().to_vec())];
+	let params = "This is an important message".as_bytes().to_vec();
+	let params = vec![Param::VecU8(&params)];
 	match bg.run_wasm("sha3_digest", params) {
 		Ok(rv) => {
 			println!("Run bindgen -- sha3_digest: {:?}", rv.unwrap().pop().unwrap().downcast::<Vec<u8>>().unwrap());
@@ -78,7 +79,8 @@ fn main() {
 		}
 	}
 
-	let params = vec![Param::VecU8("This is an important message".as_bytes().to_vec())];
+	let params = "This is an important message".as_bytes().to_vec();
+	let params = vec![Param::VecU8(&params)];
 	match bg.run_wasm("keccak_digest", params) {
 		Ok(rv) => {
 			println!("Run bindgen -- keccak_digest: {:?}", rv.unwrap().pop().unwrap().downcast::<Vec<u8>>().unwrap());

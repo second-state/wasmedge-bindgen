@@ -8,7 +8,7 @@ use num_traits::FromPrimitive;
 use wasmedge_sys::*;
 use wasmedge_types::*;
 
-pub enum Param {
+pub enum Param<'a> {
 	I8(i8),
 	U8(u8),
 	I16(i16),
@@ -20,18 +20,18 @@ pub enum Param {
 	F32(f32),
 	F64(f64),
 	Bool(bool),
-	VecI8(Vec<i8>),
-	VecU8(Vec<u8>),
-	VecI16(Vec<i16>),
-	VecU16(Vec<u16>),
-	VecI32(Vec<i32>),
-	VecU32(Vec<u32>),
-	VecI64(Vec<i64>),
-	VecU64(Vec<u64>),
-	String(String),
+	VecI8(&'a Vec<i8>),
+	VecU8(&'a Vec<u8>),
+	VecI16(&'a Vec<i16>),
+	VecU16(&'a Vec<u16>),
+	VecI32(&'a Vec<i32>),
+	VecU32(&'a Vec<u32>),
+	VecI64(&'a Vec<i64>),
+	VecU64(&'a Vec<u64>),
+	String(&'a str),
 }
 
-impl Param {
+impl<'a> Param<'a> {
 	fn settle(&self, vm: &Vm, mem: &mut Memory) -> WasmEdgeResult<(i32, i32)> {
 		match self {
 			Param::I8(v) => {

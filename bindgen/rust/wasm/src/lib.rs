@@ -4,11 +4,7 @@ use std::mem;
 /// Caller has to ensure that the memory gets freed again.
 #[no_mangle]
 pub unsafe extern fn allocate(size: i32) -> *const u8 {
-	// TODO
-	// Allocate with capacity of new should be equivalent but not
-	// let buffer = Vec::with_capacity(size as usize);
-	let buffer = vec![0; size as usize];
-	assert_eq!(size, buffer.capacity() as i32);
+	let buffer = Vec::with_capacity(size as usize);
 
 	let mut buffer = mem::ManuallyDrop::new(buffer);
 	let pointer = buffer.as_mut_ptr();
