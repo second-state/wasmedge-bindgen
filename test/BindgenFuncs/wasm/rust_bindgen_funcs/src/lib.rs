@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use wasmedge_bindgen::*;
 use wasmedge_bindgen_macro::*;
 use num_integer::lcm;
@@ -32,9 +33,10 @@ pub fn create_line(p1: String, p2: String, desc: String) -> String {
 }
 
 #[wasmedge_bindgen]
-pub fn say(s: String) -> (u16, String) {
+pub fn say(s: String) -> Result<(u16, String), String> {
   let r = String::from("hello ");
-  return (5 as u16, r + s.as_str());
+  return Ok((5 as u16, r + s.as_str()));
+  // return Err(String::from("abc"));
 }
 
 #[wasmedge_bindgen]

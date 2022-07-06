@@ -37,35 +37,15 @@ const (
 type Bindgen struct {
 	vm         *wasmedge.VM
 
-	resultChan chan []interface{}
-	errChan    chan error
-
 	funcImports *wasmedge.Module
 }
 
 func New(vm *wasmedge.VM) *Bindgen {
 	b := &Bindgen {
 		vm:          vm,
-		resultChan:  make(chan []interface{}, 1),
-		errChan:     make(chan error, 1),
 	}
 
-	b.init()
-
 	return b
-}
-
-func (b *Bindgen) init() {
-	funcImports := wasmedge.NewModule("wasmedge-bindgen")
-
-	resultFn := b.newHostFns(b.return_result, "return_result")
-	funcImports.AddFunction("return_result", resultFn)
-	errorFn := b.newHostFns(b.return_error, "return_error")
-	funcImports.AddFunction("return_error", errorFn)
-
-	b.vm.RegisterModule(funcImports)
-
-	b.funcImports = funcImports
 }
 
 func (b *Bindgen) Instantiate() {
@@ -76,20 +56,21 @@ func (b *Bindgen) GetVm() *wasmedge.VM {
 	return b.vm
 }
 
-func (b *Bindgen) Execute(funcName string, inputs... interface{}) ([]interface{}, error) {
+func (b *Bindgen) Execute(funcName string, inputs... interface{}) ([]interface{}, interface{}, error) {
 	inputsCount := len(inputs)
 	
 	// allocate new frame for passing pointers
 	allocateResult, err := b.vm.Execute("allocate", int32(inputsCount * 4 * 2))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	pointerOfPointers := allocateResult[0].(int32)
-	defer b.vm.Execute("deallocate", pointerOfPointers, int32(inputsCount * 4 * 2))
+	// Don't need to deallocate because the memory will be loaded and free in the wasm
+	// defer b.vm.Execute("deallocate", pointerOfPointers, int32(inputsCount * 4 * 2))
 	
 	memory := b.vm.GetActiveModule().FindMemory("memory")
 	if memory == nil {
-		return nil, errors.New("Memory not found")
+		return nil, nil, errors.New("Memory not found")
 	}
 
 	for idx, inp := range inputs {
@@ -137,44 +118,52 @@ func (b *Bindgen) Execute(funcName string, inputs... interface{}) ([]interface{}
 		case string:
 			pointer, lengthOfInput, err = b.settleString(memory, input)
 		default:
-			return nil, errors.New(fmt.Sprintf("Unsupported arg type %T", input))
+			return nil, nil, errors.New(fmt.Sprintf("Unsupported arg type %T", input))
 		}
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		b.putPointerOfPointer(pointerOfPointers, memory, idx, pointer, lengthOfInput)
 	}
 	
-	if _, err = b.vm.Execute(funcName, pointerOfPointers, int32(inputsCount)); err != nil {
-		return nil, err
+	var rets = make([]interface{}, 0);
+	if rets, err = b.vm.Execute(funcName, pointerOfPointers, int32(inputsCount)); err != nil {
+		return nil, nil, err
 	}
 
-	return b.executionResult()
+	if len(rets) != 1 {
+		return nil, nil, errors.New("Invalid return value")
+	}
+
+	revc, err := memory.GetData(uint(rets[0].(int32)), 9)
+	if err != nil {
+		return nil, nil, err
+	}
+	flag := revc[0]
+	retPointer := b.getI32(revc[1:5])
+	retLen := b.getI32(revc[5:9])
+
+	if flag == 0 {
+		return b.parse_result(retPointer, retLen);
+	} else {
+		return b.parse_error(retPointer, retLen);
+	}
 }
 
 func (b *Bindgen) Release() {
-	b.funcImports.Release()
+	b.vm.Release()
 }
 
-func (b *Bindgen) executionResult() ([]interface{}, error) {
-	select {
-	case res := <-b.resultChan:
-		return res, nil
-	case err := <-b.errChan:
-		return nil, err
-	}
-}
 
-func (b *Bindgen) return_result(pointer int32, size int32) {
+func (b *Bindgen) parse_result(pointer int32, size int32) ([]interface{}, interface{}, error) {
 	memory := b.vm.GetActiveModule().FindMemory("memory")
 	if memory == nil {
-		return
+		return nil, nil, errors.New("Can't get memory object")
 	}
 
 	data, err := memory.GetData(uint(pointer), uint(size) * 3 * 4)
 	if err != nil {
-		b.errChan <- err
-		return
+		return nil, nil, err
 	}
 
 	rets := make([]int32, size * 3)
@@ -190,8 +179,7 @@ func (b *Bindgen) return_result(pointer int32, size int32) {
 	for i := 0; i < int(size); i++ {
 		bytes, err := memory.GetData(uint(rets[i * 3]), uint(rets[i * 3 + 2]))
 		if err != nil {
-			b.errChan <- err
-			return
+			return nil, nil, err
 		}
 		switch rets[i * 3 + 1] {
 		case U8:
@@ -239,47 +227,21 @@ func (b *Bindgen) return_result(pointer int32, size int32) {
 		}
 	}
 
-	b.resultChan <- result
+	return result, nil, nil
 }
 
-func (b *Bindgen) return_error(pointer int32, size int32) {
+func (b *Bindgen) parse_error(pointer int32, size int32) ([]interface{}, interface{}, error) {
 	memory := b.vm.GetActiveModule().FindMemory("memory")
 	if memory == nil {
-		return
+		return nil, nil, errors.New("Can't get memory object")
 	}
 
 	data, err := memory.GetData(uint(pointer), uint(size))
 	if err != nil {
-		b.errChan <- err
-		return
+		return nil, nil, err
 	}
 
-	result := make([]byte, size)
-
-	copy(result, data)
-
-	if result != nil {
-		b.errChan <- errors.New(string(result))
-	}
-}
-
-func (b *Bindgen) newHostFns(fn func(int32, int32) , importName string) *wasmedge.Function {
-	wasmHostFn := func(data interface{}, mem *wasmedge.Memory, params []interface{}) ([]interface{}, wasmedge.Result) {
-		fn(params[0].(int32), params[1].(int32))
-		return nil, wasmedge.Result_Success
-	}
-
-	argCount := 2
-
-	argsType := make([]wasmedge.ValType, argCount)
-	for i := 0; i < argCount; i++ {
-		argsType[i] = wasmedge.ValType_I32
-	}
-
-	retType := []wasmedge.ValType{}
-	funcType := wasmedge.NewFunctionType(argsType, retType)
-
-	return wasmedge.NewFunction(funcType, wasmHostFn, nil, 0)
+	return nil, string(data), nil
 }
 
 func (b *Bindgen) putPointerOfPointer(pointerOfPointers int32, memory *wasmedge.Memory, inputIdx int, pointer int32, lengthOfInput int32) {

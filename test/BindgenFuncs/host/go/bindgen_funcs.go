@@ -38,7 +38,7 @@ func main() {
 	bg.Instantiate()
 
 	/// create_line: string, string, string -> string (inputs are JSON stringified)	
-	res, err := bg.Execute("create_line", "{\"x\":2.5,\"y\":7.8}", "{\"x\":2.5,\"y\":5.8}", "A thin red line")
+	res, _, err := bg.Execute("create_line", "{\"x\":2.5,\"y\":7.8}", "{\"x\":2.5,\"y\":5.8}", "A thin red line")
 	if err == nil {
 		fmt.Println("Run bindgen -- create_line:", res[0].(string))
 	} else {
@@ -46,15 +46,19 @@ func main() {
 	}
 
 	/// say: string -> string
-	res, err = bg.Execute("say", "bindgen funcs test")
+	res, e, err := bg.Execute("say", "bindgen funcs test")
 	if err == nil {
-		fmt.Println("Run bindgen -- say:", res[0].(string))
+		if e != nil {
+			fmt.Println("Error -- say:", e)
+		} else {
+			fmt.Println("Run bindgen -- say:", res[1].(string), res[0].(uint16))
+		}
 	} else {
 		fmt.Println("Run bindgen -- say FAILED")
 	}
 
 	/// obfusticate: string -> string
-	res, err = bg.Execute("obfusticate", "A quick brown fox jumps over the lazy dog")
+	res, _, err = bg.Execute("obfusticate", "A quick brown fox jumps over the lazy dog")
 	if err == nil {
 		fmt.Println("Run bindgen -- obfusticate:", res[0].(string))
 	} else {
@@ -62,7 +66,7 @@ func main() {
 	}
 
 	/// lowest_common_multiple: i32, i32 -> i32
-	res, err = bg.Execute("lowest_common_multiple", int32(123), int32(2))
+	res, _, err = bg.Execute("lowest_common_multiple", int32(123), int32(2))
 	if err == nil {
 		fmt.Println("Run bindgen -- lowest_common_multiple:", res[0].(int32))
 	} else {
@@ -70,7 +74,7 @@ func main() {
 	}
 
 	/// sha3_digest: array -> array
-	res, err = bg.Execute("sha3_digest", []byte("This is an important message"))
+	res, _, err = bg.Execute("sha3_digest", []byte("This is an important message"))
 	if err == nil {
 		fmt.Println("Run bindgen -- sha3_digest:", res[0].([]byte))
 	} else {
@@ -78,7 +82,7 @@ func main() {
 	}
 
 	/// keccak_digest: array -> array
-	res, err = bg.Execute("keccak_digest", []byte("This is an important message"))
+	res, _, err = bg.Execute("keccak_digest", []byte("This is an important message"))
 	if err == nil {
 		fmt.Println("Run bindgen -- keccak_digest:", res[0].([]byte))
 	} else {
@@ -86,6 +90,5 @@ func main() {
 	}
 
 	bg.Release()
-	vm.Release()
 	conf.Release()
 }
