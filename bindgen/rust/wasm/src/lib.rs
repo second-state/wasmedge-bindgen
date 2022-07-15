@@ -6,10 +6,8 @@ use std::mem;
 pub unsafe extern fn allocate(size: i32) -> *const u8 {
 	let buffer = Vec::with_capacity(size as usize);
 
-	let mut buffer = mem::ManuallyDrop::new(buffer);
-	let pointer = buffer.as_mut_ptr();
-
-	pointer as *const u8
+	let buffer = mem::ManuallyDrop::new(buffer);
+	buffer.as_ptr() as *const u8
 }
 
 #[no_mangle]

@@ -365,6 +365,7 @@ impl Bindgen {
 			return Ok(Err(String::from("Invalid return value")));
 		}
 		let rvec = memory.get_data(rets[0].to_i32() as u32, 9)?;
+		let _ = self.vm.run_function("deallocate", vec![WasmValue::from_i32(rets[0].to_i32()), WasmValue::from_i32(9)]);
 
 		let flag = rvec[0];
 		let ret_pointer = i32::from_le_bytes(rvec[1..5].try_into().unwrap());
@@ -378,6 +379,7 @@ impl Bindgen {
 	fn parse_error(&self, ret_pointer: i32, ret_len: i32) -> String {
 		let memory = self.vm.active_module().unwrap().get_memory("memory").unwrap();
 		let err_bytes = memory.get_data(ret_pointer as u32, ret_len as u32).unwrap();
+		let _ = self.vm.run_function("deallocate", vec![WasmValue::from_i32(ret_pointer), WasmValue::from_i32(ret_len)]);
 		String::from_utf8(err_bytes).unwrap_or_default()
 	}
 
@@ -385,6 +387,7 @@ impl Bindgen {
 		let size = ret_len as usize;
 		let memory = self.vm.active_module().unwrap().get_memory("memory").unwrap();
 		let p_data = memory.get_data(ret_pointer as u32, size as u32 * 3 * 4).unwrap();
+		let _ = self.vm.run_function("deallocate", vec![WasmValue::from_i32(ret_pointer), WasmValue::from_i32(size as i32 * 3 * 4)]);
 
 		let mut p_values = vec![0; size * 3];
 
@@ -396,6 +399,7 @@ impl Bindgen {
 
 		for i in 0..size {
 			let bytes = memory.get_data(p_values[i*3] as u32, p_values[i*3+2] as u32).unwrap();
+			let _ = self.vm.run_function("deallocate", vec![WasmValue::from_i32(p_values[i*3]), WasmValue::from_i32(p_values[i*3+2])]);
 			match FromPrimitive::from_i32(p_values[i*3+1]) {
 				Some(RetTypes::U8) => {
 					results.push(Box::new(bytes[0]));

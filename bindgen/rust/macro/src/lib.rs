@@ -58,10 +58,9 @@ pub fn wasmedge_bindgen(_: TokenStream, item: TokenStream) -> TokenStream {
 				Ok((#(#ret_names),*)) => {
 					let mut result_vec = vec![0; #ret_len * 3];
 					#(
+						result_vec[#ret_i * 3 + 2] = #ret_sizes;
 						result_vec[#ret_i * 3] = #ret_pointers;
 						result_vec[#ret_i * 3 + 1] = #ret_types;
-						result_vec[#ret_i * 3 + 2] = #ret_sizes;
-						let _ = std::mem::ManuallyDrop::new(#ret_names);
 					)*
 					let result_vec = std::mem::ManuallyDrop::new(result_vec);
 					// return_result
@@ -86,10 +85,9 @@ pub fn wasmedge_bindgen(_: TokenStream, item: TokenStream) -> TokenStream {
 			let (#(#ret_names),*) = #ori_run_ident(#(#arg_names),*);
 			let mut result_vec = vec![0; #ret_len * 3];
 			#(
+				result_vec[#ret_i * 3 + 2] = #ret_sizes;
 				result_vec[#ret_i * 3] = #ret_pointers;
 				result_vec[#ret_i * 3 + 1] = #ret_types;
-				result_vec[#ret_i * 3 + 2] = #ret_sizes;
-				let _ = std::mem::ManuallyDrop::new(#ret_names);
 			)*
 			let result_vec = std::mem::ManuallyDrop::new(result_vec);
 			// return_result
@@ -143,9 +141,10 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 		let ret_name = quote::format_ident!("ret{}", pos.to_string());
 		match seg.ident.to_string().as_str() {
 			"u8" => {
-				ret_pointers.push(quote! {
-					&#ret_name as *const u8 as i32
-				});
+				ret_pointers.push(quote! {{
+					let x = #ret_name.to_le_bytes()[..].to_vec();
+					std::mem::ManuallyDrop::new(x).as_ptr() as *const u8 as i32
+				}});
 				ret_names.push(ret_name);
 				ret_types.push(RetTypes::U8 as i32);
 				ret_sizes.push(quote! {
@@ -153,9 +152,10 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 				});
 			}
 			"i8" => {
-				ret_pointers.push(quote! {
-					&#ret_name as *const i8 as i32
-				});
+				ret_pointers.push(quote! {{
+					let x = #ret_name.to_le_bytes()[..].to_vec();
+					std::mem::ManuallyDrop::new(x).as_ptr() as *const i8 as i32
+				}});
 				ret_names.push(ret_name);
 				ret_types.push(RetTypes::I8 as i32);
 				ret_sizes.push(quote! {
@@ -163,9 +163,10 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 				});
 			}
 			"u16" => {
-				ret_pointers.push(quote! {
-					&#ret_name as *const u16 as i32
-				});
+				ret_pointers.push(quote! {{
+					let x = #ret_name.to_le_bytes()[..].to_vec();
+					std::mem::ManuallyDrop::new(x).as_ptr() as *const u16 as i32
+				}});
 				ret_names.push(ret_name);
 				ret_types.push(RetTypes::U16 as i32);
 				ret_sizes.push(quote! {
@@ -173,9 +174,10 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 				});
 			}
 			"i16" => {
-				ret_pointers.push(quote! {
-					&#ret_name as *const i16 as i32
-				});
+				ret_pointers.push(quote! {{
+					let x = #ret_name.to_le_bytes()[..].to_vec();
+					std::mem::ManuallyDrop::new(x).as_ptr() as *const i16 as i32
+				}});
 				ret_names.push(ret_name);
 				ret_types.push(RetTypes::I16 as i32);
 				ret_sizes.push(quote! {
@@ -183,9 +185,10 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 				});
 			}
 			"u32" => {
-				ret_pointers.push(quote! {
-					&#ret_name as *const u32 as i32
-				});
+				ret_pointers.push(quote! {{
+					let x = #ret_name.to_le_bytes()[..].to_vec();
+					std::mem::ManuallyDrop::new(x).as_ptr() as *const u32 as i32
+				}});
 				ret_names.push(ret_name);
 				ret_types.push(RetTypes::U32 as i32);
 				ret_sizes.push(quote! {
@@ -193,9 +196,10 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 				});
 			}
 			"i32" => {
-				ret_pointers.push(quote! {
-					&#ret_name as *const i32 as i32
-				});
+				ret_pointers.push(quote! {{
+					let x = #ret_name.to_le_bytes()[..].to_vec();
+					std::mem::ManuallyDrop::new(x).as_ptr() as *const i32 as i32
+				}});
 				ret_names.push(ret_name);
 				ret_types.push(RetTypes::I32 as i32);
 				ret_sizes.push(quote! {
@@ -203,9 +207,10 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 				});
 			}
 			"u64" => {
-				ret_pointers.push(quote! {
-					&#ret_name as *const u64 as i32
-				});
+				ret_pointers.push(quote! {{
+					let x = #ret_name.to_le_bytes()[..].to_vec();
+					std::mem::ManuallyDrop::new(x).as_ptr() as *const u64 as i32
+				}});
 				ret_names.push(ret_name);
 				ret_types.push(RetTypes::U64 as i32);
 				ret_sizes.push(quote! {
@@ -213,9 +218,10 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 				});
 			}
 			"i64" => {
-				ret_pointers.push(quote! {
-					&#ret_name as *const i64 as i32
-				});
+				ret_pointers.push(quote! {{
+					let x = #ret_name.to_le_bytes()[..].to_vec();
+					std::mem::ManuallyDrop::new(x).as_ptr() as *const i64 as i32
+				}});
 				ret_names.push(ret_name);
 				ret_types.push(RetTypes::I64 as i32);
 				ret_sizes.push(quote! {
@@ -223,9 +229,10 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 				});
 			}
 			"f32" => {
-				ret_pointers.push(quote! {
-					&#ret_name as *const f32 as i32
-				});
+				ret_pointers.push(quote! {{
+					let x = #ret_name.to_le_bytes()[..].to_vec();
+					std::mem::ManuallyDrop::new(x).as_ptr() as *const f32 as i32
+				}});
 				ret_names.push(ret_name);
 				ret_types.push(RetTypes::F32 as i32);
 				ret_sizes.push(quote! {
@@ -233,9 +240,10 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 				});
 			}
 			"f64" => {
-				ret_pointers.push(quote! {
-					&#ret_name as *const f64 as i32
-				});
+				ret_pointers.push(quote! {{
+					let x = #ret_name.to_le_bytes()[..].to_vec();
+					std::mem::ManuallyDrop::new(x).as_ptr() as *const f64 as i32
+				}});
 				ret_names.push(ret_name);
 				ret_types.push(RetTypes::F64 as i32);
 				ret_sizes.push(quote! {
@@ -243,9 +251,10 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 				});
 			}
 			"bool" => {
-				ret_pointers.push(quote! {
-					&#ret_name as *const bool as i32
-				});
+				ret_pointers.push(quote! {{
+					let x = #ret_name.to_le_bytes()[..].to_vec();
+					std::mem::ManuallyDrop::new(x).as_ptr() as *const bool as i32
+				}});
 				ret_names.push(ret_name);
 				ret_types.push(RetTypes::Bool as i32);
 				ret_sizes.push(quote! {
@@ -253,9 +262,10 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 				});
 			}
 			"char" => {
-				ret_pointers.push(quote! {
-					&#ret_name as *const char as i32
-				});
+				ret_pointers.push(quote! {{
+					let x = #ret_name.to_le_bytes()[..].to_vec();
+					std::mem::ManuallyDrop::new(x).as_ptr() as *const char as i32
+				}});
 				ret_names.push(ret_name);
 				ret_types.push(RetTypes::Char as i32);
 				ret_sizes.push(quote! {
@@ -264,7 +274,7 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 			}
 			"String" => {
 				ret_pointers.push(quote! {
-					#ret_name.as_ptr() as i32
+					std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
 				});
 				ret_types.push(RetTypes::String as i32);
 				ret_sizes.push(quote! {
@@ -283,7 +293,7 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 										match arg_seg.ident.to_string().as_str() {
 											"u8" => {
 												ret_pointers.push(quote! {
-													#ret_name.as_ptr() as i32
+													std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
 												});
 												ret_sizes.push(quote! {
 													#ret_name.len() as i32
@@ -293,7 +303,7 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 											}
 											"i8" => {
 												ret_pointers.push(quote! {
-													#ret_name.as_ptr() as i32
+													std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
 												});
 												ret_sizes.push(quote! {
 													#ret_name.len() as i32
@@ -303,7 +313,7 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 											}
 											"u16" => {
 												ret_pointers.push(quote! {
-													#ret_name.as_ptr() as i32
+													std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
 												});
 												ret_sizes.push(quote! {
 													#ret_name.len() as i32 * 2
@@ -313,7 +323,7 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 											}
 											"i16" => {
 												ret_pointers.push(quote! {
-													#ret_name.as_ptr() as i32
+													std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
 												});
 												ret_sizes.push(quote! {
 													#ret_name.len() as i32 * 2
@@ -323,7 +333,7 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 											}
 											"u32" => {
 												ret_pointers.push(quote! {
-													#ret_name.as_ptr() as i32
+													std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
 												});
 												ret_sizes.push(quote! {
 													#ret_name.len() as i32 * 4
@@ -333,7 +343,7 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 											}
 											"i32" => {
 												ret_pointers.push(quote! {
-													#ret_name.as_ptr() as i32
+													std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
 												});
 												ret_sizes.push(quote! {
 													#ret_name.len() as i32 * 4
@@ -343,7 +353,7 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 											}
 											"u64" => {
 												ret_pointers.push(quote! {
-													#ret_name.as_ptr() as i32
+													std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
 												});
 												ret_sizes.push(quote! {
 													#ret_name.len() as i32 * 8
@@ -353,7 +363,7 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 											}
 											"i64" => {
 												ret_pointers.push(quote! {
-													#ret_name.as_ptr() as i32
+													std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
 												});
 												ret_sizes.push(quote! {
 													#ret_name.len() as i32 * 8
