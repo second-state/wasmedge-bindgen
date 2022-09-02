@@ -11,5 +11,5 @@ repository = "https://github.com/second-state/wasmedge-bindgen"
 [dependencies]
 num-traits = "0.2"
 num-derive = "0.3"
-wasmedge-sys = "0.7.0"
-wasmedge-types = "0.1.3"
+wasmedge-sys = "0.9.0"
+wasmedge-types = "0.2.1"
