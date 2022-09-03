@@ -2,7 +2,6 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use std::any::Any;
 use wasmedge_sdk::*;
-use wasmedge_types::*;
 
 #[derive(Debug)]
 pub enum Param<'a> {
