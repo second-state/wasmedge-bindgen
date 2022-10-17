@@ -32,8 +32,47 @@ enum RetTypes {
 
 #[proc_macro_attribute]
 pub fn wasmedge_bindgen(_: TokenStream, item: TokenStream) -> TokenStream {
-	let mut ast: syn::ItemFn = syn::parse(item).unwrap();
+	let mut ast: syn::Item = syn::parse(item).unwrap();
+	match ast {
+		syn::Item::Fn(ast) => codegen_function_definition(ast),
+		syn::Item::ForeignMod(fmod) => codegen_foreign_module(fmod),
+		_ => {
+			unreachable!()
+		}
+	}
+}
 
+fn codegen_foreign_module(ast: syn::ItemForeignMod) -> TokenStream {
+	for item in &ast.items {
+		match item {
+			syn::ForeignItem::Fn(f) => {
+				// pub struct ForeignItemFn {
+				// 	pub attrs: Vec<Attribute>,
+				// 	pub vis: Visibility,
+				// 	pub sig: Signature,
+				// 	pub semi_token: Token![;],
+				// }
+			}
+			_ => unreachable!(),
+		}
+		// "String" => {
+		// 	ret_pointers.push(quote! {
+		// 		std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
+		// 	});
+		// 	ret_types.push(RetTypes::String as i32);
+		// 	ret_sizes.push(quote! {
+		// 		#ret_name.len() as i32
+		// 	});
+		// 	ret_names.push(ret_name);
+		// }
+	}
+
+	let gen = quote! { fn useless() {}};
+	let x = gen.to_string() + &ast.to_token_stream().to_string();
+	x.parse().unwrap()
+}
+
+fn codegen_function_definition(ast: syn::ItemFn) -> TokenStream {
 	let func_ident = ast.sig.ident;
 
 	let ori_run: String;
@@ -96,7 +135,7 @@ pub fn wasmedge_bindgen(_: TokenStream, item: TokenStream) -> TokenStream {
 			rvec.splice(5..9, (#ret_len as i32).to_le_bytes());
 			let rvec = std::mem::ManuallyDrop::new(rvec);
 			return rvec.as_ptr() as i32;
-		}
+		},
 	};
 
 	let gen = quote! {
@@ -129,8 +168,15 @@ pub fn wasmedge_bindgen(_: TokenStream, item: TokenStream) -> TokenStream {
 	x.parse().unwrap()
 }
 
-
-fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::TokenStream>, Vec::<i32>, Vec::<proc_macro2::TokenStream>, bool) {
+fn parse_returns(
+	ast: &syn::ItemFn,
+) -> (
+	Vec<syn::Ident>,
+	Vec<proc_macro2::TokenStream>,
+	Vec<i32>,
+	Vec<proc_macro2::TokenStream>,
+	bool,
+) {
 	let mut ret_names = Vec::<syn::Ident>::new();
 	let mut ret_pointers = Vec::<proc_macro2::TokenStream>::new();
 	let mut ret_types = Vec::<i32>::new();
@@ -282,342 +328,324 @@ fn parse_returns(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::To
 				});
 				ret_names.push(ret_name);
 			}
-			"Vec" => {
-				match &seg.arguments {
-					syn::PathArguments::AngleBracketed(args) => {
-						match args.args.first().unwrap() {
-							syn::GenericArgument::Type(arg_type) => {
-								match arg_type {
-									syn::Type::Path(arg_type_path) => {
-										let arg_seg = arg_type_path.path.segments.first().unwrap();
-										match arg_seg.ident.to_string().as_str() {
-											"u8" => {
-												ret_pointers.push(quote! {
-													std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
-												});
-												ret_sizes.push(quote! {
-													#ret_name.len() as i32
-												});
-												ret_types.push(RetTypes::U8Array as i32);
-												ret_names.push(ret_name);
-											}
-											"i8" => {
-												ret_pointers.push(quote! {
-													std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
-												});
-												ret_sizes.push(quote! {
-													#ret_name.len() as i32
-												});
-												ret_types.push(RetTypes::I8Array as i32);
-												ret_names.push(ret_name);
-											}
-											"u16" => {
-												ret_pointers.push(quote! {
-													std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
-												});
-												ret_sizes.push(quote! {
-													#ret_name.len() as i32 * 2
-												});
-												ret_types.push(RetTypes::U16Array as i32);
-												ret_names.push(ret_name);
-											}
-											"i16" => {
-												ret_pointers.push(quote! {
-													std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
-												});
-												ret_sizes.push(quote! {
-													#ret_name.len() as i32 * 2
-												});
-												ret_types.push(RetTypes::I16Array as i32);
-												ret_names.push(ret_name);
-											}
-											"u32" => {
-												ret_pointers.push(quote! {
-													std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
-												});
-												ret_sizes.push(quote! {
-													#ret_name.len() as i32 * 4
-												});
-												ret_types.push(RetTypes::U32Array as i32);
-												ret_names.push(ret_name);
-											}
-											"i32" => {
-												ret_pointers.push(quote! {
-													std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
-												});
-												ret_sizes.push(quote! {
-													#ret_name.len() as i32 * 4
-												});
-												ret_types.push(RetTypes::I32Array as i32);
-												ret_names.push(ret_name);
-											}
-											"u64" => {
-												ret_pointers.push(quote! {
-													std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
-												});
-												ret_sizes.push(quote! {
-													#ret_name.len() as i32 * 8
-												});
-												ret_types.push(RetTypes::U64Array as i32);
-												ret_names.push(ret_name);
-											}
-											"i64" => {
-												ret_pointers.push(quote! {
-													std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
-												});
-												ret_sizes.push(quote! {
-													#ret_name.len() as i32 * 8
-												});
-												ret_types.push(RetTypes::I64Array as i32);
-												ret_names.push(ret_name);
-											}
-											_ => {}
-										}
-									}
-									_ => {}
+			"Vec" => match &seg.arguments {
+				syn::PathArguments::AngleBracketed(args) => match args.args.first().unwrap() {
+					syn::GenericArgument::Type(arg_type) => match arg_type {
+						syn::Type::Path(arg_type_path) => {
+							let arg_seg = arg_type_path.path.segments.first().unwrap();
+							match arg_seg.ident.to_string().as_str() {
+								"u8" => {
+									ret_pointers.push(quote! {
+										std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
+									});
+									ret_sizes.push(quote! {
+										#ret_name.len() as i32
+									});
+									ret_types.push(RetTypes::U8Array as i32);
+									ret_names.push(ret_name);
 								}
+								"i8" => {
+									ret_pointers.push(quote! {
+										std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
+									});
+									ret_sizes.push(quote! {
+										#ret_name.len() as i32
+									});
+									ret_types.push(RetTypes::I8Array as i32);
+									ret_names.push(ret_name);
+								}
+								"u16" => {
+									ret_pointers.push(quote! {
+										std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
+									});
+									ret_sizes.push(quote! {
+										#ret_name.len() as i32 * 2
+									});
+									ret_types.push(RetTypes::U16Array as i32);
+									ret_names.push(ret_name);
+								}
+								"i16" => {
+									ret_pointers.push(quote! {
+										std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
+									});
+									ret_sizes.push(quote! {
+										#ret_name.len() as i32 * 2
+									});
+									ret_types.push(RetTypes::I16Array as i32);
+									ret_names.push(ret_name);
+								}
+								"u32" => {
+									ret_pointers.push(quote! {
+										std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
+									});
+									ret_sizes.push(quote! {
+										#ret_name.len() as i32 * 4
+									});
+									ret_types.push(RetTypes::U32Array as i32);
+									ret_names.push(ret_name);
+								}
+								"i32" => {
+									ret_pointers.push(quote! {
+										std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
+									});
+									ret_sizes.push(quote! {
+										#ret_name.len() as i32 * 4
+									});
+									ret_types.push(RetTypes::I32Array as i32);
+									ret_names.push(ret_name);
+								}
+								"u64" => {
+									ret_pointers.push(quote! {
+										std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
+									});
+									ret_sizes.push(quote! {
+										#ret_name.len() as i32 * 8
+									});
+									ret_types.push(RetTypes::U64Array as i32);
+									ret_names.push(ret_name);
+								}
+								"i64" => {
+									ret_pointers.push(quote! {
+										std::mem::ManuallyDrop::new(#ret_name).as_ptr() as i32
+									});
+									ret_sizes.push(quote! {
+										#ret_name.len() as i32 * 8
+									});
+									ret_types.push(RetTypes::I64Array as i32);
+									ret_names.push(ret_name);
+								}
+								_ => {}
 							}
-							_ => {}
 						}
-					}
+						_ => {}
+					},
 					_ => {}
-				}
-			}	
+				},
+				_ => {}
+			},
 			_ => {}
 		}
 	};
 
 	match ast.sig.output {
-		syn::ReturnType::Type(_, ref rt) => {
-			match &**rt {
-				syn::Type::Path(type_path) => {
-					let seg = &type_path.path.segments.first().unwrap();
-					let seg_type = seg.ident.to_string();
-					if seg_type == "Result"  {
-						is_rust_result = true;
-						match &seg.arguments {
-							syn::PathArguments::AngleBracketed(args) => {
-								match args.args.first().unwrap() {
-									syn::GenericArgument::Type(arg_type) => {
-										match arg_type {
-											syn::Type::Path(arg_type_path) => {
-												let arg_seg = arg_type_path.path.segments.first().unwrap();
-												prep_types(&arg_seg, 0)
-											}
-											syn::Type::Tuple(arg_type_tuple) => {
-												for (pos, elem) in arg_type_tuple.elems.iter().enumerate() {
-													match elem {
-														syn::Type::Path(type_path) => {
-															let seg = &type_path.path.segments.first().unwrap();
-															prep_types(&seg, pos);
-														}
-														_ => {}
-													}
-												}
+		syn::ReturnType::Type(_, ref rt) => match &**rt {
+			syn::Type::Path(type_path) => {
+				let seg = &type_path.path.segments.first().unwrap();
+				let seg_type = seg.ident.to_string();
+				if seg_type == "Result" {
+					is_rust_result = true;
+					match &seg.arguments {
+						syn::PathArguments::AngleBracketed(args) => match args.args.first().unwrap() {
+							syn::GenericArgument::Type(arg_type) => match arg_type {
+								syn::Type::Path(arg_type_path) => {
+									let arg_seg = arg_type_path.path.segments.first().unwrap();
+									prep_types(&arg_seg, 0)
+								}
+								syn::Type::Tuple(arg_type_tuple) => {
+									for (pos, elem) in arg_type_tuple.elems.iter().enumerate() {
+										match elem {
+											syn::Type::Path(type_path) => {
+												let seg = &type_path.path.segments.first().unwrap();
+												prep_types(&seg, pos);
 											}
 											_ => {}
 										}
 									}
-									_ => {}
 								}
-							}
+								_ => {}
+							},
 							_ => {}
-						}
-					} else {
-						prep_types(&seg, 0);
+						},
+						_ => {}
 					}
+				} else {
+					prep_types(&seg, 0);
 				}
-				syn::Type::Tuple(type_tuple) => {
-					for (pos, elem) in type_tuple.elems.iter().enumerate() {
-						match elem {
-							syn::Type::Path(type_path) => {
-								let seg = &type_path.path.segments.first().unwrap();
-								prep_types(&seg, pos);
-							}
-							_ => {}
-						}
-					}
-				}
-				_ => {}
 			}
-		}
+			syn::Type::Tuple(type_tuple) => {
+				for (pos, elem) in type_tuple.elems.iter().enumerate() {
+					match elem {
+						syn::Type::Path(type_path) => {
+							let seg = &type_path.path.segments.first().unwrap();
+							prep_types(&seg, pos);
+						}
+						_ => {}
+					}
+				}
+			}
+			_ => {}
+		},
 		_ => {}
 	}
 
-	(ret_names, ret_pointers, ret_types, ret_sizes, is_rust_result)
+	(
+		ret_names,
+		ret_pointers,
+		ret_types,
+		ret_sizes,
+		is_rust_result,
+	)
 }
 
-fn parse_params(ast: &syn::ItemFn) -> (Vec::<syn::Ident>, Vec::<proc_macro2::TokenStream>) {
+fn parse_params(ast: &syn::ItemFn) -> (Vec<syn::Ident>, Vec<proc_macro2::TokenStream>) {
 	let mut arg_names = Vec::<syn::Ident>::new();
 	let mut arg_values = Vec::<proc_macro2::TokenStream>::new();
 
 	let params_iter = ast.sig.inputs.iter();
 	for (pos, param) in params_iter.enumerate() {
 		match param {
-			syn::FnArg::Typed(param_type) => {
-				match &*param_type.ty {
-					syn::Type::Path(type_path) => {
-						let seg = &type_path.path.segments.first().unwrap();
-						match seg.ident.to_string().as_str() {
-							"Vec" => {
-								match &seg.arguments {
-									syn::PathArguments::AngleBracketed(args) => {
-										match args.args.first().unwrap() {
-											syn::GenericArgument::Type(arg_type) => {
-												match arg_type {
-													syn::Type::Path(arg_type_path) => {
-														let arg_seg = arg_type_path.path.segments.first().unwrap();
-														match arg_seg.ident.to_string().as_str() {
-															"u8" => {
-																arg_names.push(quote::format_ident!("arg{}", pos));
-																arg_values.push(quote! {
-																	Vec::from_raw_parts(pointer, size as usize, size as usize)
-																})
-															}
-															"i8" => {
-																arg_names.push(quote::format_ident!("arg{}", pos));
-																arg_values.push(quote! {
-																	Vec::from_raw_parts(pointer as *mut i8, size as usize, size as usize)
-																})
-															}
-															"u16" => {
-																arg_names.push(quote::format_ident!("arg{}", pos));
-																arg_values.push(quote! {
-																	Vec::from_raw_parts(pointer as *mut u16, size as usize, size as usize)
-																})
-															}
-															"i16" => {
-																arg_names.push(quote::format_ident!("arg{}", pos));
-																arg_values.push(quote! {
-																	Vec::from_raw_parts(pointer as *mut i16, size as usize, size as usize)
-																})
-															}
-															"u32" => {
-																arg_names.push(quote::format_ident!("arg{}", pos));
-																arg_values.push(quote! {
-																	Vec::from_raw_parts(pointer as *mut u32, size as usize, size as usize)
-																})
-															}
-															"i32" => {
-																arg_names.push(quote::format_ident!("arg{}", pos));
-																arg_values.push(quote! {
-																	Vec::from_raw_parts(pointer as *mut i32, size as usize, size as usize)
-																})
-															}
-															"u64" => {
-																arg_names.push(quote::format_ident!("arg{}", pos));
-																arg_values.push(quote! {
-																	Vec::from_raw_parts(pointer as *mut u64, size as usize, size as usize)
-																})
-															}
-															"i64" => {
-																arg_names.push(quote::format_ident!("arg{}", pos));
-																arg_values.push(quote! {
-																	Vec::from_raw_parts(pointer as *mut i64, size as usize, size as usize)
-																})
-															}
-															_ => {}
-														}
-													}
-													_ => {}
-												}
+			syn::FnArg::Typed(param_type) => match &*param_type.ty {
+				syn::Type::Path(type_path) => {
+					let seg = &type_path.path.segments.first().unwrap();
+					match seg.ident.to_string().as_str() {
+						"Vec" => match &seg.arguments {
+							syn::PathArguments::AngleBracketed(args) => match args.args.first().unwrap() {
+								syn::GenericArgument::Type(arg_type) => match arg_type {
+									syn::Type::Path(arg_type_path) => {
+										let arg_seg = arg_type_path.path.segments.first().unwrap();
+										match arg_seg.ident.to_string().as_str() {
+											"u8" => {
+												arg_names.push(quote::format_ident!("arg{}", pos));
+												arg_values.push(quote! {
+													Vec::from_raw_parts(pointer, size as usize, size as usize)
+												})
+											}
+											"i8" => {
+												arg_names.push(quote::format_ident!("arg{}", pos));
+												arg_values.push(quote! {
+													Vec::from_raw_parts(pointer as *mut i8, size as usize, size as usize)
+												})
+											}
+											"u16" => {
+												arg_names.push(quote::format_ident!("arg{}", pos));
+												arg_values.push(quote! {
+													Vec::from_raw_parts(pointer as *mut u16, size as usize, size as usize)
+												})
+											}
+											"i16" => {
+												arg_names.push(quote::format_ident!("arg{}", pos));
+												arg_values.push(quote! {
+													Vec::from_raw_parts(pointer as *mut i16, size as usize, size as usize)
+												})
+											}
+											"u32" => {
+												arg_names.push(quote::format_ident!("arg{}", pos));
+												arg_values.push(quote! {
+													Vec::from_raw_parts(pointer as *mut u32, size as usize, size as usize)
+												})
+											}
+											"i32" => {
+												arg_names.push(quote::format_ident!("arg{}", pos));
+												arg_values.push(quote! {
+													Vec::from_raw_parts(pointer as *mut i32, size as usize, size as usize)
+												})
+											}
+											"u64" => {
+												arg_names.push(quote::format_ident!("arg{}", pos));
+												arg_values.push(quote! {
+													Vec::from_raw_parts(pointer as *mut u64, size as usize, size as usize)
+												})
+											}
+											"i64" => {
+												arg_names.push(quote::format_ident!("arg{}", pos));
+												arg_values.push(quote! {
+													Vec::from_raw_parts(pointer as *mut i64, size as usize, size as usize)
+												})
 											}
 											_ => {}
 										}
 									}
 									_ => {}
-								}
-							}
-							"bool" => {
-								arg_names.push(quote::format_ident!("arg{}", pos));
-								arg_values.push(quote! {
-									Vec::from_raw_parts(pointer as *mut bool, size as usize, size as usize)[0]
-								})
-							}
-							"char" => {
-								arg_names.push(quote::format_ident!("arg{}", pos));
-								arg_values.push(quote! {
-									Vec::from_raw_parts(pointer as *mut char, size as usize, size as usize)[0]
-								})
-							}
-							"i8" => {
-								arg_names.push(quote::format_ident!("arg{}", pos));
-								arg_values.push(quote! {
-									Vec::from_raw_parts(pointer as *mut i8, size as usize, size as usize)[0]
-								})
-							}
-							"u8" => {
-								arg_names.push(quote::format_ident!("arg{}", pos));
-								arg_values.push(quote! {
-									Vec::from_raw_parts(pointer as *mut u8, size as usize, size as usize)[0]
-								})
-							}
-							"i16" => {
-								arg_names.push(quote::format_ident!("arg{}", pos));
-								arg_values.push(quote! {
-									Vec::from_raw_parts(pointer as *mut i16, size as usize, size as usize)[0]
-								})
-							}
-							"u16" => {
-								arg_names.push(quote::format_ident!("arg{}", pos));
-								arg_values.push(quote! {
-									Vec::from_raw_parts(pointer as *mut u16, size as usize, size as usize)[0]
-								})
-							}
-							"i32" => {
-								arg_names.push(quote::format_ident!("arg{}", pos));
-								arg_values.push(quote! {
-									Vec::from_raw_parts(pointer as *mut i32, size as usize, size as usize)[0]
-								})
-							}
-							"u32" => {
-								arg_names.push(quote::format_ident!("arg{}", pos));
-								arg_values.push(quote! {
-									Vec::from_raw_parts(pointer as *mut u32, size as usize, size as usize)[0]
-								})
-							}
-							"i64" => {
-								arg_names.push(quote::format_ident!("arg{}", pos));
-								arg_values.push(quote! {
-									Vec::from_raw_parts(pointer as *mut i64, size as usize, size as usize)[0]
-								})
-							}
-							"u64" => {
-								arg_names.push(quote::format_ident!("arg{}", pos));
-								arg_values.push(quote! {
-									Vec::from_raw_parts(pointer as *mut u64, size as usize, size as usize)[0]
-								})
-							}
-							"f32" => {
-								arg_names.push(quote::format_ident!("arg{}", pos));
-								arg_values.push(quote! {
-									Vec::from_raw_parts(pointer as *mut f32, size as usize, size as usize)[0]
-								})
-							}
-							"f64" => {
-								arg_names.push(quote::format_ident!("arg{}", pos));
-								arg_values.push(quote! {
-									Vec::from_raw_parts(pointer as *mut f64, size as usize, size as usize)[0]
-								})
-							}
-							"String" => {
-								arg_names.push(quote::format_ident!("arg{}", pos));
-								arg_values.push(quote! {
+								},
+								_ => {}
+							},
+							_ => {}
+						},
+						"bool" => {
+							arg_names.push(quote::format_ident!("arg{}", pos));
+							arg_values.push(quote! {
+								Vec::from_raw_parts(pointer as *mut bool, size as usize, size as usize)[0]
+							})
+						}
+						"char" => {
+							arg_names.push(quote::format_ident!("arg{}", pos));
+							arg_values.push(quote! {
+								Vec::from_raw_parts(pointer as *mut char, size as usize, size as usize)[0]
+							})
+						}
+						"i8" => {
+							arg_names.push(quote::format_ident!("arg{}", pos));
+							arg_values.push(quote! {
+								Vec::from_raw_parts(pointer as *mut i8, size as usize, size as usize)[0]
+							})
+						}
+						"u8" => {
+							arg_names.push(quote::format_ident!("arg{}", pos));
+							arg_values.push(quote! {
+								Vec::from_raw_parts(pointer as *mut u8, size as usize, size as usize)[0]
+							})
+						}
+						"i16" => {
+							arg_names.push(quote::format_ident!("arg{}", pos));
+							arg_values.push(quote! {
+								Vec::from_raw_parts(pointer as *mut i16, size as usize, size as usize)[0]
+							})
+						}
+						"u16" => {
+							arg_names.push(quote::format_ident!("arg{}", pos));
+							arg_values.push(quote! {
+								Vec::from_raw_parts(pointer as *mut u16, size as usize, size as usize)[0]
+							})
+						}
+						"i32" => {
+							arg_names.push(quote::format_ident!("arg{}", pos));
+							arg_values.push(quote! {
+								Vec::from_raw_parts(pointer as *mut i32, size as usize, size as usize)[0]
+							})
+						}
+						"u32" => {
+							arg_names.push(quote::format_ident!("arg{}", pos));
+							arg_values.push(quote! {
+								Vec::from_raw_parts(pointer as *mut u32, size as usize, size as usize)[0]
+							})
+						}
+						"i64" => {
+							arg_names.push(quote::format_ident!("arg{}", pos));
+							arg_values.push(quote! {
+								Vec::from_raw_parts(pointer as *mut i64, size as usize, size as usize)[0]
+							})
+						}
+						"u64" => {
+							arg_names.push(quote::format_ident!("arg{}", pos));
+							arg_values.push(quote! {
+								Vec::from_raw_parts(pointer as *mut u64, size as usize, size as usize)[0]
+							})
+						}
+						"f32" => {
+							arg_names.push(quote::format_ident!("arg{}", pos));
+							arg_values.push(quote! {
+								Vec::from_raw_parts(pointer as *mut f32, size as usize, size as usize)[0]
+							})
+						}
+						"f64" => {
+							arg_names.push(quote::format_ident!("arg{}", pos));
+							arg_values.push(quote! {
+								Vec::from_raw_parts(pointer as *mut f64, size as usize, size as usize)[0]
+							})
+						}
+						"String" => {
+							arg_names.push(quote::format_ident!("arg{}", pos));
+							arg_values.push(quote! {
 									std::str::from_utf8(&Vec::from_raw_parts(pointer, size as usize, size as usize)).unwrap().to_string()
 								})
-							}
-							_ => {}
 						}
+						_ => {}
 					}
-					syn::Type::Reference(_) => {
-
-					}
-					syn::Type::Slice(_) => {
-
-					}
-					_ => {}
 				}
-			}
+				syn::Type::Reference(_) => {}
+				syn::Type::Slice(_) => {}
+				_ => {}
+			},
 			_ => {}
 		}
 	}
