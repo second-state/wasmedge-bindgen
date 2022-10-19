@@ -13,7 +13,7 @@ pub fn wasmedge_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     let ast: syn::Item = syn::parse(item).unwrap();
     match ast {
         syn::Item::Fn(ast) => codegen_function_definition(ast),
-        syn::Item::ForeignMod(fmod) => codegen_foreign_module(format!("{}", attr), fmod),
+        syn::Item::ForeignMod(fmod) => codegen_foreign_module(attr.to_string(), fmod),
         _ => {
             unreachable!()
         }
