@@ -23,56 +23,7 @@ pub fn codegen_foreign_module(import_module_name: String, ast: syn::ItemForeignM
                 let ret_len = ret_names.len();
                 let ret_i = (0..ret_len).map(syn::Index::from);
 
-                let params_len = arg_names.len();
-                let i = (0..params_len).map(syn::Index::from);
-
-                let ret_result = match is_rust_result {
-                    true => quote! {
-                        match #ori_run_ident(#(#arg_names),*) {
-                            Ok((#(#ret_names),*)) => {
-                                let mut result_vec = vec![0; #ret_len * 3];
-                                #(
-                                    result_vec[#ret_i * 3 + 2] = #ret_sizes;
-                                    result_vec[#ret_i * 3] = #ret_pointers;
-                                    result_vec[#ret_i * 3 + 1] = #ret_types;
-                                )*
-                                let result_vec = std::mem::ManuallyDrop::new(result_vec);
-                                // return_result
-                                let mut rvec = vec![0 as u8; 9];
-                                rvec.splice(1..5, (result_vec.as_ptr() as i32).to_le_bytes());
-                                rvec.splice(5..9, (#ret_len as i32).to_le_bytes());
-                                let rvec = std::mem::ManuallyDrop::new(rvec);
-                                return rvec.as_ptr() as i32;
-                            }
-                            Err(message) => {
-                                let message = std::mem::ManuallyDrop::new(message);
-                                // return_error
-                                let mut rvec = vec![1 as u8; 9];
-                                rvec.splice(1..5, (message.as_ptr() as i32).to_le_bytes());
-                                rvec.splice(5..9, (message.len() as i32).to_le_bytes());
-                                let rvec = std::mem::ManuallyDrop::new(rvec);
-                                return rvec.as_ptr() as i32;
-                            }
-                        }
-                    },
-                    false => quote! {
-                        let (#(#ret_names),*) = #ori_run_ident(#(#arg_names),*);
-                        let mut result_vec = vec![0; #ret_len * 3];
-                        #(
-                            result_vec[#ret_i * 3 + 2] = #ret_sizes;
-                            result_vec[#ret_i * 3] = #ret_pointers;
-                            result_vec[#ret_i * 3 + 1] = #ret_types;
-                        )*
-                        let result_vec = std::mem::ManuallyDrop::new(result_vec);
-                        // return_result
-                        let mut rvec = vec![0 as u8; 9];
-                        rvec.splice(1..5, (result_vec.as_ptr() as i32).to_le_bytes());
-                        rvec.splice(5..9, (#ret_len as i32).to_le_bytes());
-                        let rvec = std::mem::ManuallyDrop::new(rvec);
-                        return rvec.as_ptr() as i32;
-                    },
-                };
-
+                // foreign function
                 let gen_ffi = quote! {
                     #[no_mangle]
                     fn #ori_run_ident(params_pointer: *mut u32, params_count: i32) -> i32;
@@ -82,12 +33,13 @@ pub fn codegen_foreign_module(import_module_name: String, ast: syn::ItemForeignM
                     f.sig.ident.clone().to_string().as_str(),
                     proc_macro2::Span::call_site(),
                 );
+                let params_len = arg_names.len();
+                // shim function that call foreign function and fill the gap
                 let wrap_ffi = quote! {
                     #[no_mangle]
-                    fn #origin_ident() {
-                        let mut params_pointer : i32 = 1;
-                        let params_count  = 1;
-                        let result = #ori_run_ident(&mut params_pointer, params_count);
+                    fn #origin_ident(#(#arg_names : String),*) {
+                        let mut params_pointer : u32 = 1;
+                        let result = unsafe { #ori_run_ident(&mut params_pointer, #params_len as i32) };
                         println!("test result: {}", result);
                     }
                 };

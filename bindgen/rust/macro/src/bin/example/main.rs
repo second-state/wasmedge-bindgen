@@ -5,4 +5,6 @@ extern "C" {
     fn say_hi(name: String) -> String;
 }
 
-fn main() {}
+fn main() {
+    say_hi("Yee".into());
+}
