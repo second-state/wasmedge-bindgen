@@ -97,5 +97,8 @@ pub fn codegen_function_definition(mut ast: syn::ItemFn) -> TokenStream {
 
     let ori_run_str = ast.to_token_stream().to_string();
     let x = gen.to_string() + &ori_run_str;
+
+    println!("{}", x.clone());
+
     x.parse().unwrap()
 }

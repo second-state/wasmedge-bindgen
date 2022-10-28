@@ -5,7 +5,7 @@ int main() {
   WasmEdge_ConfigureContext *ConfCxt = WasmEdge_ConfigureCreate();
   WasmEdge_VMContext *VMCxt = WasmEdge_VMCreate(ConfCxt, NULL);
   WasmEdge_String ModNameBook = WasmEdge_StringCreateByCString("book");
-  WasmEdge_String ModNameApp = WasmEdge_StringCreateByCString("main");
+  WasmEdge_String ModNameApp = WasmEdge_StringCreateByCString("app");
   WasmEdge_String FuncNameStart = WasmEdge_StringCreateByCString("start");
   WasmEdge_VMRegisterModuleFromFile(
       VMCxt, ModNameBook, "./book/target/wasm32-wasi/debug/book.wasm");

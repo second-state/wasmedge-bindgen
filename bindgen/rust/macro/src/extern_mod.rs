@@ -17,11 +17,11 @@ pub fn codegen_foreign_module(import_module_name: String, ast: syn::ItemForeignM
                 let ori_run_ident =
                     proc_macro2::Ident::new(ori_run.as_str(), proc_macro2::Span::call_site());
 
-                let (arg_names, arg_values) = parse_params(&f.sig);
-                let (ret_names, ret_pointers, ret_types, ret_sizes, is_rust_result) =
+                let (arg_names, _arg_values) = parse_params(&f.sig);
+                let (ret_names, _ret_pointers, _ret_types, _ret_sizes, _is_rust_result) =
                     parse_returns(&f.sig);
                 let ret_len = ret_names.len();
-                let ret_i = (0..ret_len).map(syn::Index::from);
+                let _ret_i = (0..ret_len).map(syn::Index::from);
 
                 // foreign function
                 let gen_ffi = quote! {
@@ -37,10 +37,17 @@ pub fn codegen_foreign_module(import_module_name: String, ast: syn::ItemForeignM
                 // shim function that call foreign function and fill the gap
                 let wrap_ffi = quote! {
                     #[no_mangle]
-                    fn #origin_ident(#(#arg_names : String),*) {
+                    fn #origin_ident(#(#arg_names : String),*) -> String {
                         let mut params_pointer : u32 = 1;
-                        let result = unsafe { #ori_run_ident(&mut params_pointer, #params_len as i32) };
-                        println!("test result: {}", result);
+                        let rvec_pointer: *const Vec<u8> = unsafe { #ori_run_ident(&mut params_pointer, #params_len as i32) } as *const Vec<u8>;
+                        let rvec: Vec<u8> = (*rvec_pointer).clone();
+                        let flag = rvec[0];
+                        let ret_pointer = i32::from_le_bytes(rvec[1..5].try_into().unwrap());
+                        let ret_len = i32::from_le_bytes(rvec[5..9].try_into().unwrap());
+                        match flag {
+                            0 => String::from_utf8(Vec::from_raw_parts(ret_pointer as *mut u8, ret_len as usize, ret_len as usize)).unwrap(),
+                            _ => "".to_string(),
+                        }
                     }
                 };
 
