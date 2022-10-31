@@ -6,7 +6,6 @@ extern "C" {
 }
 
 fn main() {
-    unsafe {
-        book_say_hi("A book".into());
-    }
+    let result = unsafe { book_say_hi("A book".into()) };
+    println!("{}", result);
 }

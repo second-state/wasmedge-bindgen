@@ -1,12 +1,15 @@
 #include "wasmedge/wasmedge.h"
 #include <stdio.h>
 
-int main() {
+int main()
+{
   WasmEdge_ConfigureContext *ConfCxt = WasmEdge_ConfigureCreate();
+  WasmEdge_ConfigureAddHostRegistration(ConfCxt, WasmEdge_HostRegistration_Wasi);
   WasmEdge_VMContext *VMCxt = WasmEdge_VMCreate(ConfCxt, NULL);
-  WasmEdge_String ModNameBook = WasmEdge_StringCreateByCString("book");
+
+  WasmEdge_String ModNameBook = WasmEdge_StringCreateByCString("env");
   WasmEdge_String ModNameApp = WasmEdge_StringCreateByCString("app");
-  WasmEdge_String FuncNameStart = WasmEdge_StringCreateByCString("start");
+  WasmEdge_String FuncNameStart = WasmEdge_StringCreateByCString("_start");
   WasmEdge_VMRegisterModuleFromFile(
       VMCxt, ModNameBook, "./book/target/wasm32-wasi/debug/book.wasm");
   WasmEdge_VMRegisterModuleFromFile(VMCxt, ModNameApp,
