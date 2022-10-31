@@ -6,5 +6,7 @@ extern "C" {
 }
 
 fn main() {
-    say_hi("A book".into());
+    unsafe {
+        book_say_hi("A book".into());
+    }
 }
