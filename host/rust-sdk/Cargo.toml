@@ -1,6 +1,6 @@
 [package]
 name = "wasmedge-sdk-bindgen"
-version = "0.1.0"
+version = "0.4.0"
 edition = "2021"
 description = "Pass string, vec and primitive types from host to webassembly, with WasmEdge Rust SDK"
 license = "MIT/Apache-2.0"
