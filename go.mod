@@ -1,5 +1,5 @@
 module github.com/second-state/wasmedge-bindgen
 
-go 1.16
+go 1.17
 
-require github.com/second-state/WasmEdge-go v0.10.0
+require github.com/second-state/WasmEdge-go v0.11.0
