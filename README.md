@@ -2,8 +2,16 @@
 
 Let WebAssembly's exported function support more data types for its parameters and return values.
 
-## Example
+## Build and run Example
 
+```
+cd test/BindgenFuncs/wasm/rust_bindgen_funcs
+cargo build --release --target=wasm32-wasi
+
+cd test/BindgenFuncs/host/rust/
+cargo build
+./target/debug/bindgen-funcs ../../wasm/rust_bindgen_funcs/target/wasm32-wasi/release/rust_bindgen_funcs_lib.wasm 
+```
 
 ## Export Rust things to host program
 

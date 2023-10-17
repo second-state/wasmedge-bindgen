@@ -201,11 +201,11 @@ checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
 
 [[package]]
 name = "wasmedge-bindgen"
-version = "0.4.0"
+version = "0.4.1"
 
 [[package]]
 name = "wasmedge-bindgen-macro"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "proc-macro2",
  "quote",
